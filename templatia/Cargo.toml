@@ -1,0 +1,18 @@
+[package]
+name = "templatia"
+description = "A template library writedown and load the struct"
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+keywords = ["parser", "template"]
+categories = ["parsing", "template-engine"]
+edition = "2024"
+rust-version = "1.85.0"
+
+[dependencies]
+thiserror = "2"
+
+templatia-derive = { path = "../templatia-derive", version = "0.0.1", optional = true }
+
+[features]
+derive = ["templatia-derive"]
