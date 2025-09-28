@@ -1,0 +1,13 @@
+error: DbCfg has no field named "username"
+ --> tests/compile_fail/missing_field.rs:6:8
+  |
+6 | struct DbCfg { host: String, port: u16 }
+  |        ^^^^^
+
+warning: unused import: `templatia::Template`
+ --> tests/compile_fail/missing_field.rs:1:5
+  |
+1 | use templatia::Template;
+  |     ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default

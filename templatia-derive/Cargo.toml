@@ -16,3 +16,7 @@ darling = "0.21"
 
 # Parser
 chumsky = "0.11"
+
+[dev-dependencies]
+trybuild = "1.0"
+templatia = { path = "../templatia", features = ["derive"] }

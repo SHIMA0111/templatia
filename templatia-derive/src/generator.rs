@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use chumsky::Parser;
 use quote::{quote};
 use crate::parser::TemplateSegments;
 
@@ -9,7 +8,7 @@ pub(crate) fn generate_str_parser(
     placeholder_names: &HashSet<String>,
     segments: &[TemplateSegments]
 ) -> proc_macro2::TokenStream {
-    // Get the field name
+    // Validate placeholders exist as fields
     let all_field_names = all_fields
         .iter()
         .filter_map(|f| f.ident.as_ref().map(|id| id.to_string()))
@@ -21,85 +20,111 @@ pub(crate) fn generate_str_parser(
                 proc_macro2::Span::call_site(),
                 format!("{} has no field named \"{}\"", struct_name.to_string(), name),
             );
-
             return error.to_compile_error().into();
         }
     }
 
+    // Build ordered list of placeholders and their types
+    let mut ordered_idents: Vec<syn::Ident> = Vec::new();
+    let mut ordered_types: Vec<syn::Type> = Vec::new();
 
-    let mut parsers = segments.iter().peekable();
-    let mut generated_full_parser = quote! { chumsky::prelude::empty() };
-    let mut placeholder_count = 0;
-
-    while let Some(segment) = parsers.next() {
-        match segment {
-            TemplateSegments::Literal(lit) => {
-                if placeholder_count == 0 {
-                    generated_full_parser = quote! { chumsky::prelude::just(#lit).ignored() }
-                } else {
-                    generated_full_parser = quote! { #generated_full_parser.then_ignore(chumsky::prelude::just(#lit)) }
-                }
-            },
-            TemplateSegments::Placeholder(name) => {
-                // Get the placeholder name on Ident
-                let name_ident = syn::Ident::new(&name, proc_macro2::Span::call_site());
-                let field = match all_fields
-                    .iter()
-                    // Check if the placeholder name contains the field name or not
-                    .find(|f| f.ident.as_ref() == Some(&name_ident))
-                {
-                    Some(field) => field,
-                    None => {
-                        let err = syn::Error::new(
-                            proc_macro2::Span::call_site(),
-                            format!("{} has no field named \"{}\"", struct_name.to_string(), name),
-                        );
-                        return err.to_compile_error().into()
-                    }
-                };
-
-                let field_type = &field.ty;
-                let field_parser = generate_field_parser(&name_ident, field_type, parsers.peek().cloned());
-
-                if placeholder_count == 0 {
-                    generated_full_parser = field_parser;
-                } else {
-                    generated_full_parser = quote! { #generated_full_parser.then(#field_parser) }
-                }
-
-                // Count of the placeholder
-                placeholder_count += 1;
+    for segment in segments.iter() {
+        if let TemplateSegments::Placeholder(name) = segment {
+            let name_ident = syn::Ident::new(name, proc_macro2::Span::call_site());
+            if let Some(field) = all_fields.iter().find(|f| f.ident.as_ref() == Some(&name_ident)) {
+                ordered_idents.push(name_ident);
+                ordered_types.push(field.ty.clone());
+            } else {
+                let err = syn::Error::new(
+                    proc_macro2::Span::call_site(),
+                    format!("{} has no field named \"{}\"", struct_name.to_string(), name),
+                );
+                return err.to_compile_error().into();
             }
         }
     }
 
-    generated_full_parser = quote! { #generated_full_parser.then_ignore(chumsky::prelude::end()) };
+    // Generate imperative parser code that reads from `s`
+    // It walks the template segments, checks literals, and captures slices for placeholders.
+    let mut capture_stmts: Vec<proc_macro2::TokenStream> = Vec::new();
+    let mut value_idents: Vec<syn::Ident> = Vec::new();
 
-    let field_names = segments
-        .iter()
-        .filter_map(|segment| match segment {
-            TemplateSegments::Placeholder(name) => Some(syn::Ident::new(&name, proc_macro2::Span::call_site())),
-            _ => None,
-        }).collect::<HashSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
+    let mut iter = segments.iter().peekable();
+    while let Some(seg) = iter.next() {
+        match seg {
+            TemplateSegments::Literal(lit) => {
+                let lit_str = *lit;
+                capture_stmts.push(quote! {
+                    if !s[idx..].starts_with(#lit_str) {
+                        return Err(templatia::TemplateError::Parse(format!("Expected literal {:?} at position {}", #lit_str, idx)));
+                    }
+                    idx += #lit_str.len();
+                });
+            }
+            TemplateSegments::Placeholder(name) => {
+                let name_ident = syn::Ident::new(name, proc_macro2::Span::call_site());
+                let ty = if let Some(pos) = ordered_idents.iter().position(|id| id == &name_ident) {
+                    ordered_types[pos].clone()
+                } else {
+                    // Already validated above, unreachable
+                    syn::parse_quote! { () }
+                };
 
-    let mut counter = HashMap::new();
-    // The parser joined the left side so the parse result has a nested tuple adding left like
-    // (((#first, #second), #third), #forth)..., and getting it by pattern matching, generate the tuple.
-    let tuple_pattern = generate_tuple_pattern(&mut counter, &field_names);
-    let struct_constructor = quote! {
-        #struct_name {
-            #(#field_names),*
+                // Determine the next literal (if any)
+                let next_lit_opt = match iter.peek() {
+                    Some(TemplateSegments::Literal(lit)) => Some(*lit),
+                    _ => None,
+                };
+
+                let val_ident = syn::Ident::new(&format!("__val_{}", name), proc_macro2::Span::call_site());
+                value_idents.push(name_ident.clone());
+
+                let capture_code = if let Some(next_lit) = next_lit_opt {
+                    quote! {
+                        let end = s[idx..].find(#next_lit).ok_or_else(|| templatia::TemplateError::Parse(
+                            format!("Expected delimiter {:?} for placeholder '{}' not found", #next_lit, stringify!(#name_ident))
+                        ))?;
+                        let slice = &s[idx..idx + end];
+                        idx += end; // do not consume delimiter here; next literal arm will consume it
+                        let #val_ident: #ty = slice.parse().map_err(|e| templatia::TemplateError::Parse(
+                            format!("Failed to parse field \"{}\": {}", stringify!(#name_ident), e)
+                        ))?;
+                    }
+                } else {
+                    quote! {
+                        let slice = &s[idx..];
+                        idx = s.len();
+                        let #val_ident: #ty = slice.parse().map_err(|e| templatia::TemplateError::Parse(
+                            format!("Failed to parse field \"{}\": {}", stringify!(#name_ident), e)
+                        ))?;
+                    }
+                };
+
+                capture_stmts.push(capture_code);
+            }
         }
-    };
+    }
 
-    let final_parser = quote! {
-        #generated_full_parser.map(|#tuple_pattern| #struct_constructor)
-    };
+    // Now assign captured values to struct fields in the order of first appearance,
+    // using the last seen value if a placeholder repeats.
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut struct_field_inits: Vec<proc_macro2::TokenStream> = Vec::new();
+    for ident in ordered_idents.iter() {
+        let key = ident.to_string();
+        if seen.insert(key.clone()) {
+            let val_ident = syn::Ident::new(&format!("__val_{}", key), proc_macro2::Span::call_site());
+            struct_field_inits.push(quote! { #ident: #val_ident });
+        }
+    }
 
-    final_parser
-}
+    quote! {{
+        let mut idx: usize = 0;
+        #(#capture_stmts)*
+        if idx != s.len() {
+            return Err(templatia::TemplateError::Parse(format!("Unexpected trailing characters at position {}", idx)));
+        }
+        Ok(#struct_name { #(#struct_field_inits),* })
+    }}}
 
 fn generate_field_parser(
     field_name: &syn::Ident,
@@ -113,7 +138,7 @@ fn generate_field_parser(
 
     let value_extractor = if let Some(next_literal) = next_literal {
         quote! {
-            chumsky::prelude::just(#next_literal)
+            chumsky::text::keyword(#next_literal)
                 .not()
                 .ignore_then(chumsky::prelude::any())
                 .repeated()
@@ -129,7 +154,7 @@ fn generate_field_parser(
     quote! {
         #value_extractor.try_map(|s: &str, span| {
             s.parse::<#field_type>()
-                .map_err(|e| chumsky::error::Rich::custom(
+                .map_err(|e| chumsky::error::Rich::<char>::custom(
                     span,
                     format!("Failed to parse field \"{}\": {}", stringify!(#field_name), e)
                 ))
