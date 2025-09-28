@@ -45,10 +45,28 @@ pub(crate) fn generate_str_parser(
     }
 
     // Generate imperative parser code that reads from `s`
-    // It walks the template segments, checks literals, and captures slices for placeholders.
+    // It walks the template segments, checks literals, captures slices for placeholders,
+    // and enforces duplicate placeholder consistency.
     let mut capture_stmts: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut value_idents: Vec<syn::Ident> = Vec::new();
 
+    // Declare storage for first-seen raw values and per-field parsed value options.
+    let mut unique_seen_order: Vec<(syn::Ident, syn::Type)> = Vec::new();
+    let mut seen_names: HashSet<String> = HashSet::new();
+    for (ident, ty) in ordered_idents.iter().zip(ordered_types.iter()) {
+        let key = ident.to_string();
+        if seen_names.insert(key.clone()) {
+            unique_seen_order.push((ident.clone(), ty.clone()));
+        }
+    }
+
+    // Predeclare parsed Option variables for each unique placeholder field.
+    let mut predecl_parsed_opts: Vec<proc_macro2::TokenStream> = Vec::new();
+    for (ident, ty) in unique_seen_order.iter() {
+        let parsed_opt_ident = syn::Ident::new(&format!("__parsed_{}", ident), proc_macro2::Span::call_site());
+        predecl_parsed_opts.push(quote! { let mut #parsed_opt_ident: ::core::option::Option<#ty> = ::core::option::Option::None; });
+    }
+
+    // Generate the scanning and consistency checking statements.
     let mut iter = segments.iter().peekable();
     while let Some(seg) = iter.next() {
         match seg {
@@ -76,8 +94,8 @@ pub(crate) fn generate_str_parser(
                     _ => None,
                 };
 
-                let val_ident = syn::Ident::new(&format!("__val_{}", name), proc_macro2::Span::call_site());
-                value_idents.push(name_ident.clone());
+                let parsed_opt_ident = syn::Ident::new(&format!("__parsed_{}", name), proc_macro2::Span::call_site());
+                let key_str = name.to_string();
 
                 let capture_code = if let Some(next_lit) = next_lit_opt {
                     quote! {
@@ -86,39 +104,62 @@ pub(crate) fn generate_str_parser(
                         ))?;
                         let slice = &s[idx..idx + end];
                         idx += end; // do not consume delimiter here; next literal arm will consume it
-                        let #val_ident: #ty = slice.parse().map_err(|e| templatia::TemplateError::Parse(
-                            format!("Failed to parse field \"{}\": {}", stringify!(#name_ident), e)
-                        ))?;
+                        // Check duplicate consistency or set first value and parse
+                        if let ::core::option::Option::Some(prev) = __first_values.get(#key_str) {
+                            if prev != slice {
+                                return Err(templatia::TemplateError::InconsistentValues {
+                                    placeholder: #key_str.to_string(),
+                                    first_value: prev.clone(),
+                                    second_value: slice.to_string(),
+                                });
+                            }
+                        } else {
+                            __first_values.insert(#key_str, slice.to_string());
+                            let parsed: #ty = slice.parse().map_err(|e| templatia::TemplateError::Parse(
+                                format!("Failed to parse field \"{}\": {}", stringify!(#name_ident), e)
+                            ))?;
+                            #parsed_opt_ident = ::core::option::Option::Some(parsed);
+                        }
                     }
                 } else {
                     quote! {
                         let slice = &s[idx..];
                         idx = s.len();
-                        let #val_ident: #ty = slice.parse().map_err(|e| templatia::TemplateError::Parse(
-                            format!("Failed to parse field \"{}\": {}", stringify!(#name_ident), e)
-                        ))?;
+                        if let ::core::option::Option::Some(prev) = __first_values.get(#key_str) {
+                            if prev != slice {
+                                return Err(templatia::TemplateError::InconsistentValues {
+                                    placeholder: #key_str.to_string(),
+                                    first_value: prev.clone(),
+                                    second_value: slice.to_string(),
+                                });
+                            }
+                        } else {
+                            __first_values.insert(#key_str, slice.to_string());
+                            let parsed: #ty = slice.parse().map_err(|e| templatia::TemplateError::Parse(
+                                format!("Failed to parse field \"{}\": {}", stringify!(#name_ident), e)
+                            ))?;
+                            #parsed_opt_ident = ::core::option::Option::Some(parsed);
+                        }
                     }
                 };
-
                 capture_stmts.push(capture_code);
             }
         }
     }
 
-    // Now assign captured values to struct fields in the order of first appearance,
-    // using the last seen value if a placeholder repeats.
-    let mut seen: HashSet<String> = HashSet::new();
+    // Now assign captured and parsed values to struct fields in the order of first appearance.
     let mut struct_field_inits: Vec<proc_macro2::TokenStream> = Vec::new();
-    for ident in ordered_idents.iter() {
-        let key = ident.to_string();
-        if seen.insert(key.clone()) {
-            let val_ident = syn::Ident::new(&format!("__val_{}", key), proc_macro2::Span::call_site());
-            struct_field_inits.push(quote! { #ident: #val_ident });
-        }
+    for (ident, _ty) in unique_seen_order.iter() {
+        let parsed_opt_ident = syn::Ident::new(&format!("__parsed_{}", ident), proc_macro2::Span::call_site());
+        struct_field_inits.push(quote! { #ident: #parsed_opt_ident.expect("internal error: missing parsed value for placeholder") });
     }
 
     quote! {{
         let mut idx: usize = 0;
+        // Map of first-seen raw values for duplicate consistency checks
+        let mut __first_values: ::std::collections::HashMap<&'static str, ::std::string::String> = ::std::collections::HashMap::new();
+        // Predeclared per-field parsed value storages
+        #(#predecl_parsed_opts)*
         #(#capture_stmts)*
         if idx != s.len() {
             return Err(templatia::TemplateError::Parse(format!("Unexpected trailing characters at position {}", idx)));

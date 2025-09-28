@@ -41,3 +41,33 @@ fn parse_error_is_reported_as_template_error_parse() {
         other => panic!("unexpected error: {other:?}"),
     }
 }
+
+
+#[test]
+fn duplicate_placeholder_inconsistent_values() {
+    #[derive(Template, Debug, PartialEq)]
+    #[templatia(template = "name={name}&again={name}")]
+    struct S { name: String }
+
+    let bad = "name=alice&again=bob";
+    let err = S::from_string(bad).expect_err("expected inconsistency error");
+    match err {
+        templatia::TemplateError::InconsistentValues { placeholder, first_value, second_value } => {
+            assert_eq!(placeholder, "name");
+            assert_eq!(first_value, "alice");
+            assert_eq!(second_value, "bob");
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn duplicate_placeholder_equal_values_ok() {
+    #[derive(Template, Debug, PartialEq)]
+    #[templatia(template = "name={name}&again={name}")]
+    struct S { name: String }
+
+    let ok = "name=alice&again=alice";
+    let parsed = S::from_string(ok).expect("should parse when duplicates equal");
+    assert_eq!(parsed, S { name: "alice".into() });
+}
