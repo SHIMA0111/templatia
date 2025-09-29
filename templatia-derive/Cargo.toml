@@ -20,4 +20,4 @@ proc-macro2 = "1.0"
 darling = "0.21"
 
 [dev-dependencies]
-templatia = { version = "0.0.1", path = "../templatia", features = ["derive"] }
+templatia = { path = "../templatia", features = ["derive"] }
