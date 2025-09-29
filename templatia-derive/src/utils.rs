@@ -1,4 +1,4 @@
-pub(crate) const CONSECUTIVE_PLACEHOLDER_ALLOWED_TYPE: [&str; 1] = ["char"];
+pub(crate) const CONSECUTIVE_PLACEHOLDER_ALLOWED_TYPE: [&str; 2] = ["char", "bool"];
 
 pub(crate) fn is_allowed_consecutive_allowed_type(field_type: &syn::Type) -> bool {
     match field_type {

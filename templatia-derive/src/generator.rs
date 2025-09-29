@@ -1,7 +1,7 @@
 use crate::parser::TemplateSegments;
 use quote::quote;
 use std::collections::{HashMap, HashSet};
-use crate::utils::is_allowed_consecutive_allowed_type;
+use crate::utils::{get_type_name, is_allowed_consecutive_allowed_type};
 use crate::validator::validate_template_safety;
 
 pub(crate) fn generate_str_parser(
@@ -170,19 +170,34 @@ fn generate_field_parser(
         _ => None,
     };
 
-    let value_extractor = if let Some(next_literal) = next_literal {
-        quote! {
-            ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>(#next_literal)
-                .not()
-                .ignore_then(::templatia::__private::chumsky::prelude::any())
-                .repeated()
-                .to_slice()
-        }
-    } else {
-        if is_allowed_consecutive_allowed_type(field_type) {
-            quote! {
+    let value_extractor = if is_allowed_consecutive_allowed_type(field_type) {
+        match get_type_name(field_type).as_str() {
+            "char" => quote! {
                 ::templatia::__private::chumsky::prelude::any::<&str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>()
                     .map(|c| c.to_string())
+                    .to_slice()
+            },
+            "bool" => quote! {
+                ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>("true")
+                    .or(::templatia::__private::chumsky::prelude::just("false"))
+                    .to_slice()
+                    // bool is a fixed size text so true and false parsed but if the text is not true or false,
+                    // it will return Err so handling it to adopt the error message.
+                    .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
+                        e.span().clone(),
+                        format!("Failed to parse field \"{}\": bool type should be \"true\" or \"false\" only", stringify!(#field_name))
+                    ))
+            },
+            // Currently, allowed only char, bool. So, this branch is unreachable.
+            _ => unreachable!(),
+        }
+    } else {
+        if let Some(next_literal) = next_literal {
+            quote! {
+                ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>(#next_literal)
+                    .not()
+                    .ignore_then(::templatia::__private::chumsky::prelude::any())
+                    .repeated()
                     .to_slice()
             }
         } else {
@@ -196,13 +211,14 @@ fn generate_field_parser(
 
     // CAUTION: In this generator, the try_map isn't called to the TokenStream; it calls the chumsky Object generated from to_slice().
     quote! {
-        #value_extractor.try_map(|s: &str, span| {
-            s.parse::<#field_type>()
-                .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
-                    span,
-                    format!("Failed to parse field \"{}\": {}", stringify!(#field_name), e)
-                ))
-        })
+        #value_extractor
+            .try_map(|s: &str, span| {
+                s.parse::<#field_type>()
+                    .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
+                        span,
+                        format!("Failed to parse field \"{}\": {}", stringify!(#field_name), e)
+                    ))
+            })
     }
 }
 

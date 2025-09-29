@@ -712,3 +712,263 @@ mod roundtrip_tests {
         }
     }
 }
+
+/// Tests for consecutive placeholder validation and new functionality
+mod consecutive_placeholder_tests {
+    use super::*;
+
+    #[test]
+    fn consecutive_char_placeholders_allowed() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{first}{second}")]
+        struct ConsecutiveChars {
+            first: char,
+            second: char,
+        }
+
+        let chars = ConsecutiveChars {
+            first: 'A',
+            second: 'B',
+        };
+
+        let template = chars.to_string();
+        assert_eq!(template, "AB");
+
+        let parsed = ConsecutiveChars::from_string(&template).unwrap();
+        assert_eq!(parsed, chars);
+    }
+
+    #[test]
+    fn consecutive_bool_placeholders_allowed() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{flag1}{flag2}")]
+        struct ConsecutiveBools {
+            flag1: bool,
+            flag2: bool,
+        }
+
+        let bools = ConsecutiveBools {
+            flag1: true,
+            flag2: false,
+        };
+
+        let template = bools.to_string();
+        assert_eq!(template, "truefalse");
+
+        let parsed = ConsecutiveBools::from_string(&template).unwrap();
+        assert_eq!(parsed, bools);
+    }
+
+    #[test]
+    fn mixed_char_bool_consecutive_allowed() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{character}{flag}")]
+        struct MixedCharBool {
+            character: char,
+            flag: bool,
+        }
+
+        let mixed = MixedCharBool {
+            character: 'X',
+            flag: true,
+        };
+
+        let template = mixed.to_string();
+        assert_eq!(template, "Xtrue");
+
+        let parsed = MixedCharBool::from_string(&template).unwrap();
+        assert_eq!(parsed, mixed);
+    }
+
+    #[test]
+    fn bool_char_consecutive_allowed() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{enabled}{grade}")]
+        struct BoolChar {
+            enabled: bool,
+            grade: char,
+        }
+
+        let bc = BoolChar {
+            enabled: false,
+            grade: 'A',
+        };
+
+        let template = bc.to_string();
+        assert_eq!(template, "falseA");
+
+        let parsed = BoolChar::from_string(&template).unwrap();
+        assert_eq!(parsed, bc);
+    }
+
+    #[test]
+    fn multiple_consecutive_chars() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{a}{b}{c}{d}")]
+        struct MultipleChars {
+            a: char,
+            b: char,
+            c: char,
+            d: char,
+        }
+
+        let multi = MultipleChars {
+            a: 'T',
+            b: 'E',
+            c: 'S',
+            d: 'T',
+        };
+
+        let template = multi.to_string();
+        assert_eq!(template, "TEST");
+
+        let parsed = MultipleChars::from_string(&template).unwrap();
+        assert_eq!(parsed, multi);
+    }
+
+    #[test]
+    fn multiple_consecutive_bools() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{a}{b}{c}")]
+        struct MultipleBools {
+            a: bool,
+            b: bool,
+            c: bool,
+        }
+
+        let multi = MultipleBools {
+            a: true,
+            b: false,
+            c: true,
+        };
+
+        let template = multi.to_string();
+        assert_eq!(template, "truefalsetrue");
+
+        let parsed = MultipleBools::from_string(&template).unwrap();
+        assert_eq!(parsed, multi);
+    }
+
+    #[test]
+    fn char_with_literal_separator() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{first}-{second}")]
+        struct SeparatedChars {
+            first: char,
+            second: char,
+        }
+
+        let sep = SeparatedChars {
+            first: 'A',
+            second: 'Z',
+        };
+
+        let template = sep.to_string();
+        assert_eq!(template, "A-Z");
+
+        let parsed = SeparatedChars::from_string(&template).unwrap();
+        assert_eq!(parsed, sep);
+    }
+
+    #[test]
+    fn bool_with_literal_separator() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{enabled}|{disabled}")]
+        struct SeparatedBools {
+            enabled: bool,
+            disabled: bool,
+        }
+
+        let sep = SeparatedBools {
+            enabled: true,
+            disabled: false,
+        };
+
+        let template = sep.to_string();
+        assert_eq!(template, "true|false");
+
+        let parsed = SeparatedBools::from_string(&template).unwrap();
+        assert_eq!(parsed, sep);
+    }
+}
+
+/// Tests for escaped brace handling
+mod escaped_brace_tests {
+    use super::*;
+
+    #[test]
+    fn escaped_opening_brace() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{{value={value}")]
+        struct EscapedOpen {
+            value: String,
+        }
+
+        let escaped = EscapedOpen {
+            value: "test".into(),
+        };
+
+        let template = escaped.to_string();
+        assert_eq!(template, "{value=test");
+
+        let parsed = EscapedOpen::from_string(&template).unwrap();
+        assert_eq!(parsed, escaped);
+    }
+
+    #[test]
+    fn escaped_closing_brace() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "value={value}}}")]
+        struct EscapedClose {
+            value: String,
+        }
+
+        let escaped = EscapedClose {
+            value: "test".into(),
+        };
+
+        let template = escaped.to_string();
+        assert_eq!(template, "value=test}");
+
+        let parsed = EscapedClose::from_string(&template).unwrap();
+        assert_eq!(parsed, escaped);
+    }
+
+    #[test]
+    fn both_escaped_braces() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{{data: {value}}}")]
+        struct BothEscaped {
+            value: String,
+        }
+
+        let escaped = BothEscaped {
+            value: "test".into(),
+        };
+
+        let template = escaped.to_string();
+        assert_eq!(template, "{data: test}");
+
+        let parsed = BothEscaped::from_string(&template).unwrap();
+        assert_eq!(parsed, escaped);
+    }
+
+    #[test]
+    fn multiple_escaped_braces() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{{{{prefix}}}}: {value}")]
+        struct MultipleEscaped {
+            value: String,
+        }
+
+        let escaped = MultipleEscaped {
+            value: "data".into(),
+        };
+
+        let template = escaped.to_string();
+        assert_eq!(template, "{{prefix}}: data");
+
+        let parsed = MultipleEscaped::from_string(&template).unwrap();
+        assert_eq!(parsed, escaped);
+    }
+}

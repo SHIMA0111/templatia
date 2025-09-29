@@ -72,7 +72,7 @@ pub(crate) fn parse_template(template: &'_ str) -> Result<Vec<TemplateSegments<'
                         continue;
                     }
                 }
-                return Err("Unmatched closing brace '{'".to_string());
+                return Err("Unmatched closing brace '}'".to_string());
             }
             _ => {}
         }
