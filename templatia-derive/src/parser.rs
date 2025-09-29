@@ -11,9 +11,15 @@ pub(crate) fn parse_template(template: &'_ str) -> Result<Vec<TemplateSegments<'
     while let Some((i, c)) = chars.next() {
         match c {
             '{' => {
-                if let Some(&(_, next_char)) = chars.peek() {
+                if let Some(&(next_idx, next_char)) = chars.peek() {
                     // if the next char is a `{`, it means escaped brace, so it shouldn't be treated as a placeholder.
                     if next_char == '{' {
+                        // In escaped brace displayed as `{` in literal, not should be `{{`.
+                        if next_idx > last_end {
+                            segments.push(TemplateSegments::Literal(&template[last_end..next_idx]));
+                            last_end = next_idx + 1;
+                        }
+
                         chars.next();
                         continue;
                     }
@@ -53,9 +59,15 @@ pub(crate) fn parse_template(template: &'_ str) -> Result<Vec<TemplateSegments<'
                 }
             }
             '}' => {
-                if let Some(&(_, next_char)) = chars.peek() {
+                if let Some(&(next_idx, next_char)) = chars.peek() {
                     // if the next char is a `}`, it means escaped brace, so it shouldn't be treated as an end brace.
                     if next_char == '}' {
+                        // In escaped brace displayed as `}` in literal, not should be `}}`.
+                        if next_idx > last_end {
+                            segments.push(TemplateSegments::Literal(&template[last_end..next_idx]));
+                            last_end = next_idx + 1;
+                        }
+
                         chars.next();
                         continue;
                     }

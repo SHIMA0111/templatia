@@ -27,6 +27,8 @@
 
 mod generator;
 mod parser;
+mod validator;
+mod utils;
 
 use crate::generator::generate_str_parser;
 use crate::parser::{TemplateSegments, parse_template};
