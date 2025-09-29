@@ -249,6 +249,7 @@ dependencies = [
 name = "templatia"
 version = "0.0.1"
 dependencies = [
+ "chumsky",
  "templatia-derive",
  "thiserror",
 ]
@@ -257,11 +258,11 @@ dependencies = [
 name = "templatia-derive"
 version = "0.0.1"
 dependencies = [
- "chumsky",
  "darling",
  "proc-macro2",
  "quote",
  "syn",
+ "templatia",
 ]
 
 [[package]]
