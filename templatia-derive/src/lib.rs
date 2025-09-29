@@ -1,32 +1,29 @@
-//! Derive macro for the templatia Template trait.
+//! # Templatia Derive
 //!
-//! The `templatia-derive` crate provides a `#[derive(Template)]` procedural
-//! macro for named structs. It generates implementations that convert the
-//! struct to and from a template string.
+//! Procedural macros for the templatia template parsing library.
 //!
-//! # Examples
-//! ```rust
-//! use templatia::Template; // trait
-//! use templatia_derive::Template as TemplateDerive; // proc-macro
+//! This crate provides the `#[derive(Template)]` macro that automatically generates
+//! `templatia::Template` trait implementations for named structs.
 //!
-//! #[derive(TemplateDerive)]
-//! struct DbCfg {
-//!     host: String,
-//!     port: u16,
-//! }
+//! ## Limitations
 //!
-//! // Default template becomes:
-//! // "host = {host}\nport = {port}"
-//! let cfg = DbCfg { host: "localhost".into(), port: 5432 };
-//! let s = cfg.to_string();
-//! assert!(s.contains("host = localhost"));
-//! assert!(s.contains("port = 5432"));
-//! ```
+//! - **Named Structs Only**: Currently only `struct Name { field: Type }` is supported
+//! - **No Tuple Structs**: `struct Point(i32, i32)` is not supported yet
+//! - **No Enums**: Enum support is planned for future versions
+//! - **Field Requirements**: Template fields must implement `Display`, `FromStr`, and `PartialEq`
 //!
-//! # Notes
-//! - Only named structs are supported.
-//! - Fields referenced in the template must exist on the struct.
-//! - Fields used in the template must implement `Display` and `FromStr`.
+//! ## Attribute Reference
+//!
+//! ### `#[templatia(template = "...")]`
+//!
+//! Defines a custom template string with `{field_name}` placeholders.
+//!
+//! **Rules:**
+//! - Placeholders must match struct field names exactly
+//! - All placeholders must reference existing fields
+//! - Duplicate placeholders are allowed but must have consistent values during parsing
+//!
+//! For detailed usage examples and comprehensive documentation, see the main `templatia` crate.
 
 mod generator;
 mod parser;
@@ -52,35 +49,25 @@ struct TemplateOpts {
     template: Override<String>,
 }
 
-/// Implements `templatia::Template` for a named struct.
+/// Derive macro for implementing `templatia::Template` trait on named structs.
 ///
-/// The macro accepts an optional `templatia` attribute with a `template`
-/// string. If omitted, a default template is synthesized where each named
-/// field appears on its own line as `name = {name}`.
+/// This procedural macro automatically generates `Template` trait implementations,
+/// enabling bidirectional conversion between structs and template strings.
 ///
-/// # Parameters
-/// - input: The token stream of a `struct` definition with optional
-///   `#[templatia(template = "...")]` attribute.
+/// # Type Requirements
 ///
-/// # Returns
-/// Generated `impl templatia::Template for YourStruct` or a compile error.
+/// All fields referenced in the template must implement:
+/// - `std::fmt::Display` for serialization (`to_string`)
+/// - `std::str::FromStr` for deserialization (`from_string`)
+/// - `std::cmp::PartialEq` for consistency validation with duplicate placeholders
 ///
-/// # Errors
-/// - If the provided template references a missing field.
-/// - If parsing the template fails.
-/// - If used on a non-named struct (unsupported).
+/// # Compilation Errors
 ///
-/// # Examples
-/// ```rust
-/// use templatia::Template;
-/// use templatia_derive::Template as TemplateDerive;
-///
-/// #[derive(TemplateDerive)]
-/// struct App { name: String }
-///
-/// let a = App { name: "x".into() };
-/// assert!(a.to_string().contains("name = x"));
-/// ```
+/// The macro will produce compile-time errors in the following cases:
+/// - Template references non-existent struct fields
+/// - Template parsing fails due to invalid syntax
+/// - Applied to unsupported struct types (tuple structs, unit structs, enums)
+/// - Field types don't satisfy the required trait bounds
 #[proc_macro_derive(Template, attributes(templatia))]
 pub fn template_derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);

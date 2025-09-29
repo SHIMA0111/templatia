@@ -209,6 +209,30 @@
 //!     _ => unreachable!(),
 //! }
 //! ```
+//!
+//! ## Features
+//!
+//! ### `derive`
+//!
+//! The `derive` feature enables the `#[derive(Template)]` procedural macro for automatic
+//! `Template` trait implementations on named structs.
+//!
+//! When enabled, you can use:
+//! ```toml
+//! [dependencies]
+//! templatia = { version = "0.0.1", features = ["derive"] }
+//! ```
+//!
+//! This feature is **recommended** for most users as it significantly simplifies usage:
+//! - Automatic trait implementation generation
+//! - Custom template support via `#[templatia(template = "...")]` attribute
+//! - Compile-time validation of templates and field references
+//! - Zero-cost abstractions with full type safety
+//!
+//! **Limitations:** Currently only supports named structs. Tuple structs, unit structs,
+//! and enums require manual `Template` trait implementation.
+//!
+//! For detailed usage examples, see the sections above.
 
 #[cfg(feature = "derive")]
 #[doc(inline)]
