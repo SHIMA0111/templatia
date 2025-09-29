@@ -1,6 +1,8 @@
 use crate::parser::TemplateSegments;
 use quote::quote;
 use std::collections::{HashMap, HashSet};
+use crate::utils::{get_type_name, is_allowed_consecutive_allowed_type};
+use crate::validator::validate_template_safety;
 
 pub(crate) fn generate_str_parser(
     struct_name: &syn::Ident,
@@ -29,10 +31,20 @@ pub(crate) fn generate_str_parser(
         }
     }
 
+    if let Err(e) = validate_template_safety(segments, all_fields) {
+        let error = syn::Error::new(
+            proc_macro2::Span::call_site(),
+            format!("{}: {}", struct_name.to_string(), e),
+        );
+
+        return error.to_compile_error().into();
+    }
+
     let mut parsers = segments.iter().peekable();
     let mut generated_full_parser = quote! { ::templatia::__private::chumsky::prelude::empty() };
     let mut parser_count = 0;
     let mut latest_segment_was_literal = false;
+    let mut first_placeholder_was_parsed = false;
 
     while let Some(segment) = parsers.next() {
         match segment {
@@ -74,7 +86,7 @@ pub(crate) fn generate_str_parser(
                 if parser_count == 0 {
                     generated_full_parser = field_parser;
                 } else {
-                    if latest_segment_was_literal && parser_count == 1 {
+                    if latest_segment_was_literal && !first_placeholder_was_parsed {
                         generated_full_parser =
                             quote! { #generated_full_parser.ignore_then(#field_parser) }
                     } else {
@@ -82,6 +94,7 @@ pub(crate) fn generate_str_parser(
                             quote! { #generated_full_parser.then(#field_parser) }
                     }
                 }
+                first_placeholder_was_parsed = true;
                 latest_segment_was_literal = false;
             }
         }
@@ -157,29 +170,55 @@ fn generate_field_parser(
         _ => None,
     };
 
-    let value_extractor = if let Some(next_literal) = next_literal {
-        quote! {
-            ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>(#next_literal)
-                .not()
-                .ignore_then(::templatia::__private::chumsky::prelude::any())
-                .repeated()
-                .to_slice()
+    let value_extractor = if is_allowed_consecutive_allowed_type(field_type) {
+        match get_type_name(field_type).as_str() {
+            "char" => quote! {
+                ::templatia::__private::chumsky::prelude::any::<&str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>()
+                    .map(|c| c.to_string())
+                    .to_slice()
+            },
+            "bool" => quote! {
+                ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>("true")
+                    .or(::templatia::__private::chumsky::prelude::just("false"))
+                    .to_slice()
+                    // bool is a fixed size text so true and false parsed but if the text is not true or false,
+                    // it will return Err so handling it to adopt the error message.
+                    .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
+                        e.span().clone(),
+                        format!("Failed to parse field \"{}\": bool type should be \"true\" or \"false\" only", stringify!(#field_name))
+                    ))
+            },
+            // Currently, allowed only char, bool. So, this branch is unreachable.
+            _ => unreachable!(),
         }
     } else {
-        quote! {
-            ::templatia::__private::chumsky::prelude::any::<&str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>().repeated().to_slice()
+        if let Some(next_literal) = next_literal {
+            quote! {
+                ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>(#next_literal)
+                    .not()
+                    .ignore_then(::templatia::__private::chumsky::prelude::any())
+                    .repeated()
+                    .to_slice()
+            }
+        } else {
+            quote! {
+                ::templatia::__private::chumsky::prelude::any::<&str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>()
+                    .repeated()
+                    .to_slice()
+            }
         }
     };
 
     // CAUTION: In this generator, the try_map isn't called to the TokenStream; it calls the chumsky Object generated from to_slice().
     quote! {
-        #value_extractor.try_map(|s: &str, span| {
-            s.parse::<#field_type>()
-                .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
-                    span,
-                    format!("Failed to parse field \"{}\": {}", stringify!(#field_name), e)
-                ))
-        })
+        #value_extractor
+            .try_map(|s: &str, span| {
+                s.parse::<#field_type>()
+                    .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
+                        span,
+                        format!("Failed to parse field \"{}\": {}", stringify!(#field_name), e)
+                    ))
+            })
     }
 }
 

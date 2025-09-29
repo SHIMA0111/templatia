@@ -21,3 +21,4 @@ darling = "0.21"
 
 [dev-dependencies]
 templatia = { path = "../templatia", features = ["derive"] }
+trybuild = "1"
