@@ -1,8 +1,8 @@
 //! # Templatia
 //!
 //! A powerful and easy-to-use library for converting Rust structs to and from text templates.
-//! Templatia lets you define templates with placeholders and automatically handles the 
-//! serialization and deserialization, making configuration management and text processing 
+//! Templatia lets you define templates with placeholders and automatically handles the
+//! serialization and deserialization, making configuration management and text processing
 //! effortless.
 //!
 //! ## Key Features
@@ -130,9 +130,9 @@
 //!             return Err(TemplateError::Parse("Expected two comma-separated values".to_string()));
 //!         }
 //!         
-//!         let x = parts[0].parse().map_err(|_| 
+//!         let x = parts[0].parse().map_err(|_|
 //!             TemplateError::Parse("Failed to parse x coordinate".to_string()))?;
-//!         let y = parts[1].parse().map_err(|_| 
+//!         let y = parts[1].parse().map_err(|_|
 //!             TemplateError::Parse("Failed to parse y coordinate".to_string()))?;
 //!         
 //!         Ok(Point(x, y))
@@ -203,7 +203,7 @@
 //!
 //! match BackupConfig::from_string("id=prod-backup-dev") {
 //!     Err(TemplateError::InconsistentValues { placeholder, first_value, second_value }) => {
-//!         println!("Placeholder '{}' had conflicting values: '{}' vs '{}'", 
+//!         println!("Placeholder '{}' had conflicting values: '{}' vs '{}'",
 //!                  placeholder, first_value, second_value);
 //!     },
 //!     _ => unreachable!(),
@@ -216,7 +216,7 @@ pub use templatia_derive::Template;
 
 /// A trait for converting between a struct and its string template form.
 ///
-/// This trait enables bidirectional conversion between Rust data structures and their 
+/// This trait enables bidirectional conversion between Rust data structures and their
 /// string template representations. It's the core abstraction that powers templatia's
 /// serialization and deserialization capabilities.
 ///
@@ -305,8 +305,8 @@ pub use templatia_derive::Template;
 ///     value: T,
 /// }
 ///
-/// impl<T> Template for KeyValue<T> 
-/// where 
+/// impl<T> Template for KeyValue<T>
+/// where
 ///     T: Display + FromStr + Clone,
 ///     T::Err: Display,
 /// {
@@ -447,7 +447,9 @@ pub enum TemplateError {
     /// - placeholder: The placeholder name.
     /// - first_value: The first observed value.
     /// - second_value: The conflicting later value.
-    #[error("Inconsistent values for placeholder '{placeholder}': found '{first_value}', and after face '{second_value}'")]
+    #[error(
+        "Inconsistent values for placeholder '{placeholder}': found '{first_value}', and after face '{second_value}'"
+    )]
     InconsistentValues {
         placeholder: String,
         first_value: String,

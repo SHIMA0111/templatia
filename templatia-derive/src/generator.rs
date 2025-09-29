@@ -1,12 +1,12 @@
-use std::collections::{HashMap, HashSet};
-use quote::{quote};
 use crate::parser::TemplateSegments;
+use quote::quote;
+use std::collections::{HashMap, HashSet};
 
 pub(crate) fn generate_str_parser(
     struct_name: &syn::Ident,
     all_fields: &[syn::Field],
     placeholder_names: &HashSet<String>,
-    segments: &[TemplateSegments]
+    segments: &[TemplateSegments],
 ) -> proc_macro2::TokenStream {
     // Get the field name
     let all_field_names = all_fields
@@ -18,13 +18,16 @@ pub(crate) fn generate_str_parser(
         if !all_field_names.contains(name) {
             let error = syn::Error::new(
                 proc_macro2::Span::call_site(),
-                format!("{} has no field named \"{}\"", struct_name.to_string(), name),
+                format!(
+                    "{} has no field named \"{}\"",
+                    struct_name.to_string(),
+                    name
+                ),
             );
 
             return error.to_compile_error().into();
         }
     }
-
 
     let mut parsers = segments.iter().peekable();
     let mut generated_full_parser = quote! { ::templatia::__private::chumsky::prelude::empty() };
@@ -35,13 +38,13 @@ pub(crate) fn generate_str_parser(
         match segment {
             TemplateSegments::Literal(lit) => {
                 if parser_count == 0 {
-                    generated_full_parser = quote! { 
-                        ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>(#lit).ignored() }
+                    generated_full_parser = quote! {
+                    ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>(#lit).ignored() }
                 } else {
                     generated_full_parser = quote! { #generated_full_parser.then_ignore(::templatia::__private::chumsky::prelude::just(#lit)) }
                 }
                 latest_segment_was_literal = true;
-            },
+            }
             TemplateSegments::Placeholder(name) => {
                 // Get the placeholder name on Ident
                 let name_ident = syn::Ident::new(&name, proc_macro2::Span::call_site());
@@ -54,22 +57,29 @@ pub(crate) fn generate_str_parser(
                     None => {
                         let err = syn::Error::new(
                             proc_macro2::Span::call_site(),
-                            format!("{} has no field named \"{}\"", struct_name.to_string(), name),
+                            format!(
+                                "{} has no field named \"{}\"",
+                                struct_name.to_string(),
+                                name
+                            ),
                         );
-                        return err.to_compile_error().into()
+                        return err.to_compile_error().into();
                     }
                 };
 
                 let field_type = &field.ty;
-                let field_parser = generate_field_parser(&name_ident, field_type, parsers.peek().cloned());
+                let field_parser =
+                    generate_field_parser(&name_ident, field_type, parsers.peek().cloned());
 
                 if parser_count == 0 {
                     generated_full_parser = field_parser;
                 } else {
                     if latest_segment_was_literal && parser_count == 1 {
-                        generated_full_parser = quote! { #generated_full_parser.ignore_then(#field_parser) }
+                        generated_full_parser =
+                            quote! { #generated_full_parser.ignore_then(#field_parser) }
                     } else {
-                        generated_full_parser = quote! { #generated_full_parser.then(#field_parser) }
+                        generated_full_parser =
+                            quote! { #generated_full_parser.then(#field_parser) }
                     }
                 }
                 latest_segment_was_literal = false;
@@ -84,9 +94,12 @@ pub(crate) fn generate_str_parser(
     let field_names = segments
         .iter()
         .filter_map(|segment| match segment {
-            TemplateSegments::Placeholder(name) => Some(syn::Ident::new(&name, proc_macro2::Span::call_site())),
+            TemplateSegments::Placeholder(name) => {
+                Some(syn::Ident::new(&name, proc_macro2::Span::call_site()))
+            }
             _ => None,
-        }).collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
 
     // The parser joined the left side so the parse result has a nested tuple adding left like
     // (((#first, #second), #third), #forth)..., and getting it by pattern matching, generate the tuple.
@@ -106,10 +119,12 @@ pub(crate) fn generate_str_parser(
         }
     };
 
-    let dup_conds = dup_checks.iter().map(|(base, dup, _)| quote! { #dup != #base });
-    let dup_names  = dup_checks.iter().map(|(_, _, name)| quote! { #name });
-    let dup_bases  = dup_checks.iter().map(|(base, _, _)| quote! { #base });
-    let dup_dups   = dup_checks.iter().map(|(_, dup, _)| quote! { #dup });
+    let dup_conds = dup_checks
+        .iter()
+        .map(|(base, dup, _)| quote! { #dup != #base });
+    let dup_names = dup_checks.iter().map(|(_, _, name)| quote! { #name });
+    let dup_bases = dup_checks.iter().map(|(base, _, _)| quote! { #base });
+    let dup_dups = dup_checks.iter().map(|(_, dup, _)| quote! { #dup });
 
     let final_parser = quote! {
         #generated_full_parser
@@ -135,7 +150,7 @@ pub(crate) fn generate_str_parser(
 fn generate_field_parser(
     field_name: &syn::Ident,
     field_type: &syn::Type,
-    next_segment: Option<&TemplateSegments>
+    next_segment: Option<&TemplateSegments>,
 ) -> proc_macro2::TokenStream {
     let next_literal = match next_segment {
         Some(TemplateSegments::Literal(lit)) => Some(lit),
@@ -170,7 +185,10 @@ fn generate_field_parser(
 
 fn generate_tuple_pattern(
     field_names: &Vec<syn::Ident>,
-) -> (proc_macro2::TokenStream, Vec<(syn::Ident, syn::Ident, String)>) {
+) -> (
+    proc_macro2::TokenStream,
+    Vec<(syn::Ident, syn::Ident, String)>,
+) {
     let mut first_binds: HashMap<String, syn::Ident> = HashMap::new();
     let mut dup_checks: Vec<(syn::Ident, syn::Ident, String)> = Vec::new();
 
@@ -188,7 +206,7 @@ fn generate_tuple_pattern(
                 .get(&key.to_string())
                 .cloned()
                 .unwrap_or_else(|| key.clone());
-            
+
             dup_checks.push((base_ident, dup_ident.clone(), key.to_string()));
             dup_ident
         } else {

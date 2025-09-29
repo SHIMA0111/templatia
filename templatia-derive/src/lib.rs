@@ -28,17 +28,17 @@
 //! - Fields referenced in the template must exist on the struct.
 //! - Fields used in the template must implement `Display` and `FromStr`.
 
-mod parser;
 mod generator;
+mod parser;
 
-use proc_macro::TokenStream;
-use std::collections::HashSet;
+use crate::generator::generate_str_parser;
+use crate::parser::{TemplateSegments, parse_template};
 use darling::FromDeriveInput;
 use darling::util::Override;
+use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
-use crate::generator::generate_str_parser;
-use crate::parser::{parse_template, TemplateSegments};
+use std::collections::HashSet;
+use syn::{DeriveInput, parse_macro_input};
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(templatia), supports(struct_named))]
@@ -97,11 +97,11 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         Override::Inherit => {
             if let syn::Data::Struct(data_struct) = &ast.data {
                 if let syn::Fields::Named(fields_named) = &data_struct.fields {
-                    fields_named.named.iter()
+                    fields_named
+                        .named
+                        .iter()
                         .filter_map(|field| field.ident.as_ref())
-                        .map(|ident| {
-                            format!("{0} = {{{0}}}", ident.to_string())
-                        })
+                        .map(|ident| format!("{0} = {{{0}}}", ident.to_string()))
                         .collect::<Vec<_>>()
                         .join("\n")
                 } else {
@@ -116,10 +116,8 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
     let segments = match parse_template(&template) {
         Ok(segments) => segments,
         Err(e) => {
-            let error = syn::Error::new_spanned(
-                &opts.ident,
-                format!("Failed to parse template: {}", e)
-            );
+            let error =
+                syn::Error::new_spanned(&opts.ident, format!("Failed to parse template: {}", e));
             // Transform syn::Error to TokenStream, and fast return
             return error.to_compile_error().into();
         }
@@ -131,18 +129,17 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         .map(|segment| match segment {
             TemplateSegments::Literal(lit) => lit.replace("{", "{{").replace("}", "}}"),
             TemplateSegments::Placeholder(_) => "{}".to_string(),
-        }).collect::<String>();
+        })
+        .collect::<String>();
 
     // Generate code for placeholder completion the format_string it used the self keys
-    let format_args = segments
-        .iter()
-        .filter_map(|segment| match segment {
-            TemplateSegments::Placeholder(name) => {
-                let field_ident = syn::Ident::new(name, proc_macro2::Span::call_site());
-                Some(quote! { &self.#field_ident })
-            },
-            TemplateSegments::Literal(_) => None,
-        });
+    let format_args = segments.iter().filter_map(|segment| match segment {
+        TemplateSegments::Placeholder(name) => {
+            let field_ident = syn::Ident::new(name, proc_macro2::Span::call_site());
+            Some(quote! { &self.#field_ident })
+        }
+        TemplateSegments::Literal(_) => None,
+    });
 
     let all_fields = if let darling::ast::Data::Struct(data_struct) = &opts.data {
         &data_struct.fields
@@ -160,13 +157,13 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
             } else {
                 None
             }
-        }).collect::<HashSet<_>>();
+        })
+        .collect::<HashSet<_>>();
     let str_from_parser = generate_str_parser(name, all_fields, &placeholder_names, &segments);
-    
-    
+
     // Generate trait bound
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
-    
+
     let used_fields = all_fields
         .iter()
         .filter(|field| {
@@ -175,9 +172,12 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
             } else {
                 false
             }
-        }).collect::<Vec<_>>();
-    
-    let mut new_where_clause = where_clause.cloned().unwrap_or_else(|| syn::parse_quote!{ where });
+        })
+        .collect::<Vec<_>>();
+
+    let mut new_where_clause = where_clause
+        .cloned()
+        .unwrap_or_else(|| syn::parse_quote! { where });
     for field in used_fields {
         let field_ty = &field.ty;
         if !new_where_clause.predicates.is_empty() {
@@ -190,7 +190,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
             <#field_ty as ::std::str::FromStr>::Err: ::std::fmt::Display
         })
     }
-    
+
     let where_clause = if new_where_clause.predicates.is_empty() {
         quote! {}
     } else {
@@ -201,11 +201,11 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         impl #impl_generics ::templatia::Template for #name #ty_generics #where_clause {
             type Error = templatia::TemplateError;
             type Struct = #name #ty_generics;
-            
+
             fn to_string(&self) -> String {
                 format!(#format_string, #(#format_args),*)
             }
-            
+
             fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
                 use ::templatia::__private::chumsky::Parser;
 

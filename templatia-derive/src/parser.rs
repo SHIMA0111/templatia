@@ -51,7 +51,7 @@ pub(crate) fn parse_template(template: &'_ str) -> Result<Vec<TemplateSegments<'
                         break;
                     }
                 }
-            },
+            }
             '}' => {
                 if let Some(&(_, next_char)) = chars.peek() {
                     // if the next char is a `}`, it means escaped brace, so it shouldn't be treated as an end brace.
@@ -61,8 +61,8 @@ pub(crate) fn parse_template(template: &'_ str) -> Result<Vec<TemplateSegments<'
                     }
                 }
                 return Err("Unmatched closing brace '{'".to_string());
-            },
-            _  => {}
+            }
+            _ => {}
         }
     }
 
