@@ -10,3 +10,6 @@ version = "0.0.1"
 authors = ["SHIMA0111<shima@little-tabby.com>"]
 license = "MIT or Apache-2.0"
 readme = "README.md"
+repository = "https://github.com/SHIMA0111/templatia"
+documentation = "https://docs.rs/templatia"
+homepage = "https://github.com/SHIMA0111/templatia"
