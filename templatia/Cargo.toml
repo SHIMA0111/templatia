@@ -8,6 +8,7 @@ keywords = ["parser", "template"]
 categories = ["parsing", "template-engine"]
 edition = "2024"
 rust-version = "1.85.0"
+readme = { workspace = true }
 
 [dependencies]
 thiserror = "2"

@@ -9,3 +9,4 @@ resolver = "3"
 version = "0.0.1"
 authors = ["SHIMA0111<shima@little-tabby.com>"]
 license = "MIT or Apache-2.0"
+readme = "README.md"
