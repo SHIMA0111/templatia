@@ -169,7 +169,10 @@ pub(crate) fn generate_str_parser(
         }
     };
 
-    let dup_conds = dup_checks
+    // Generate the duplicate check code which will be expanded to base_value != dup_value
+    // Therefore, the execution time, the compare operation is statically determined.
+    // Almost cases, the compare is more efficient than the dynamic compare.
+    let dup_conditions = dup_checks
         .iter()
         .map(|(base, dup, _)| quote! { #dup != #base });
     let dup_names = dup_checks.iter().map(|(_, _, name)| quote! { #name });
@@ -180,7 +183,7 @@ pub(crate) fn generate_str_parser(
         #generated_full_parser
             .try_map(|#tuple_pattern, span| {
             #(
-                if #dup_conds {
+                if #dup_conditions {
                     return Err(::templatia::__private::chumsky::error::Rich::custom(
                         span,
                         format!(
