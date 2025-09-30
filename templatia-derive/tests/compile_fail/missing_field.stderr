@@ -1,13 +1,21 @@
 error: DbCfg has no field named "username"
- --> tests/compile_fail/missing_field.rs:6:8
+ --> tests/compile_fail/missing_field.rs:3:10
   |
-6 | struct DbCfg { host: String, port: u16 }
-  |        ^^^^^
+3 | #[derive(Template)]
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `Template` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-warning: unused import: `templatia::Template`
- --> tests/compile_fail/missing_field.rs:1:5
+error[E0601]: `main` function not found in crate `$CRATE`
+ --> tests/compile_fail/missing_field.rs:5:41
   |
-1 | use templatia::Template;
-  |     ^^^^^^^^^^^^^^^^^^^
+5 | struct DbCfg { host: String, port: u16 }
+  |                                         ^ consider adding a `main` function to `$DIR/tests/compile_fail/missing_field.rs`
+
+error[E0609]: no field `username` on type `&DbCfg`
+ --> tests/compile_fail/missing_field.rs:3:10
   |
-  = note: `#[warn(unused_imports)]` on by default
+3 | #[derive(Template)]
+  |          ^^^^^^^^ unknown field
+  |
+  = note: this error originates in the derive macro `Template` (in Nightly builds, run with -Z macro-backtrace for more info)

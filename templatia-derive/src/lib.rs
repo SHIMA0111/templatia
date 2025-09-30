@@ -27,6 +27,8 @@
 
 mod generator;
 mod parser;
+mod validator;
+mod utils;
 
 use crate::generator::generate_str_parser;
 use crate::parser::{TemplateSegments, parse_template};
@@ -117,6 +119,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
             TemplateSegments::Literal(lit) => lit.replace("{", "{{").replace("}", "}}"),
             TemplateSegments::Placeholder(_) => "{}".to_string(),
         })
+        // This collect works because the String implements FromIterator.
         .collect::<String>();
 
     // Generate code for placeholder completion the format_string it used the self keys
@@ -168,6 +171,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
     for field in used_fields {
         let field_ty = &field.ty;
         if !new_where_clause.predicates.is_empty() {
+            // push_punct adds a comma between predicates.
             new_where_clause.predicates.push_punct(Default::default());
         }
         new_where_clause.predicates.push(syn::parse_quote! {
