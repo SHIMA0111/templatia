@@ -127,7 +127,7 @@ templatia defines a simple error type for parsing and validation:
 - templatia
   - Template trait
     - A trait that defines the behavior of `templatia`.
-      It defines two methods: `to_string()` and `from_string()`, and `type::Error`.
+      It defines two methods: `to_string()` and `from_string()`, and related type: `Error`.
   - TemplateError enum for error reporting
 - templatia-derive
   - #[derive(Template)] macro for named structs
@@ -142,7 +142,7 @@ templatia defines a simple error type for parsing and validation:
 - 0.0.2
   - [x] Define default behavior for missing data: `#[templatia(allow_missing_placeholders)]` attribute allows fields not in template to use `Default::default()`
   - [ ] Option<T>: default to `None` when the placeholder is absent (automatic support without requiring `allow_missing_placeholders`)
-  - [ ] Remove `type::Struct` from Template trait
+  - [ ] Remove `type Struct` from `Template` trait
 - 0.0.3
   - [ ] Enrich error handling and warnings (clearer diagnostics and coverage)
 - 0.0.4
@@ -159,8 +159,8 @@ This repository follows AGENTS.md for documentation and testing conventions. In 
 
 ## License
 Dual-licensed under either of:
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-ap.md) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-mit.md) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 You may use this software under the terms of either license.
 

@@ -126,7 +126,7 @@ templatia は解析や検証に関するシンプルなエラー型を提供し�
 - templatia
   - Template トレイト
     - `templatia`の振る舞いを定義したトレイトです。  
-      `to_string()`と`from_string()`という二つのメソッドと`type::Error`を定義しています。
+      `to_string()`と`from_string()`という二つのメソッドと関連型の`Error`を定義しています。
   - TemplateError
     - templatia-deriveのデフォルトのエラーです。
 - templatia-derive
@@ -141,7 +141,7 @@ templatia は解析や検証に関するシンプルなエラー型を提供し�
 - 0.0.2
   - [x] 欠損データのデフォルト挙動を定義: `#[templatia(allow_missing_placeholders)]` 属性により、テンプレートに含まれないフィールドを `Default::default()` で初期化可能
   - [ ] Option<T>: プレースホルダが無い場合は既定で None（`allow_missing_placeholders` 不要で自動対応）
-  - [ ] Template構造体から`type::Struct`を削除
+  - [ ] `Template`構造体から関連型の`type Struct`を削除
 - 0.0.3
   - [ ] エラーハンドリングと警告の充実化（診断の明確化とカバレッジ拡大）
 - 0.0.4
