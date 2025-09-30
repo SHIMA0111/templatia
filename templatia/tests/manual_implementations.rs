@@ -342,7 +342,7 @@ mod manual_implementation_edge_cases {
 
         fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
             if let Some((outer_part, inner_part)) = s.split_once(':') {
-                if let (Some(inner_content), true) = (inner_part.strip_prefix('[').and_then(|s| s.strip_suffix(']')), inner_part.starts_with('[') && inner_part.ends_with(']')) {
+                if let Some(inner_content) = inner_part.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
                     let inner = if inner_content.is_empty() {
                         Vec::new()
                     } else {
