@@ -63,7 +63,7 @@ fn main() {
 When no template is specified, each field is synthesized in the format `field_name = {field_name}`, one per line.
 For example:
 ```rust
-#[derive(Templatia)]
+#[derive(Template)]
 struct AwesomeStruct {
   data1: String,
   data2: u32,

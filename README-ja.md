@@ -62,7 +62,7 @@ fn main() {
 テンプレートを指定しない場合、各フィールドが1行ずつ `field_name = {field_name}` という形式で合成されます。
 例えば
 ```rust
-#[derive(Templatia)]
+#[derive(Template)]
 struct AwesomeStruct {
   data1: String,
   data2: u32,
