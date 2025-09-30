@@ -972,3 +972,337 @@ mod escaped_brace_tests {
         assert_eq!(parsed, escaped);
     }
 }
+
+/// Tests for missing field support (allow_missing_placeholders attribute)
+mod missing_field_tests {
+    use super::*;
+
+    #[test]
+    fn basic_missing_field_with_default() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "name={name}", allow_missing_placeholders)]
+        struct PartialConfig {
+            name: String,
+            port: u16,
+        }
+
+        // Create instance with both fields
+        let config = PartialConfig {
+            name: "server".into(),
+            port: 8080,
+        };
+
+        // to_string only includes template fields
+        let template = config.to_string();
+        assert_eq!(template, "name=server");
+
+        // from_string sets missing field to default
+        let parsed = PartialConfig::from_string(&template).unwrap();
+        assert_eq!(parsed.name, "server");
+        assert_eq!(parsed.port, 0); // Default for u16
+    }
+
+    #[test]
+    fn multiple_missing_fields() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "id={id}", allow_missing_placeholders)]
+        struct MultiMissing {
+            id: u32,
+            name: String,
+            enabled: bool,
+            count: i32,
+        }
+
+        let instance = MultiMissing {
+            id: 42,
+            name: "test".into(),
+            enabled: true,
+            count: -5,
+        };
+
+        let template = instance.to_string();
+        assert_eq!(template, "id=42");
+
+        let parsed = MultiMissing::from_string(&template).unwrap();
+        assert_eq!(parsed.id, 42);
+        assert_eq!(parsed.name, ""); // Default for String
+        assert_eq!(parsed.enabled, false); // Default for bool
+        assert_eq!(parsed.count, 0); // Default for i32
+    }
+
+    #[test]
+    fn missing_field_with_some_in_template() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "user={user}:pass={pass}", allow_missing_placeholders)]
+        struct Credentials {
+            user: String,
+            pass: String,
+            domain: String,
+            port: u16,
+        }
+
+        let creds = Credentials {
+            user: "admin".into(),
+            pass: "secret".into(),
+            domain: "example.com".into(),
+            port: 443,
+        };
+
+        let template = creds.to_string();
+        assert_eq!(template, "user=admin:pass=secret");
+
+        let parsed = Credentials::from_string(&template).unwrap();
+        assert_eq!(parsed.user, "admin");
+        assert_eq!(parsed.pass, "secret");
+        assert_eq!(parsed.domain, ""); // Default
+        assert_eq!(parsed.port, 0); // Default
+    }
+
+    #[test]
+    fn missing_field_all_types_have_defaults() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "active={active}", allow_missing_placeholders)]
+        struct AllTypes {
+            active: bool,
+            text: String,
+            number: i32,
+            unsigned: u64,
+            float: f64,
+            character: char,
+        }
+
+        let instance = AllTypes {
+            active: true,
+            text: "ignored".into(),
+            number: 999,
+            unsigned: 12345,
+            float: 3.14,
+            character: 'X',
+        };
+
+        let template = instance.to_string();
+        assert_eq!(template, "active=true");
+
+        let parsed = AllTypes::from_string(&template).unwrap();
+        assert_eq!(parsed.active, true);
+        assert_eq!(parsed.text, "");
+        assert_eq!(parsed.number, 0);
+        assert_eq!(parsed.unsigned, 0);
+        assert_eq!(parsed.float, 0.0);
+        assert_eq!(parsed.character, '\0');
+    }
+
+    #[test]
+    fn missing_field_roundtrip_consistency() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "status={status}", allow_missing_placeholders)]
+        struct StatusReport {
+            status: String,
+            timestamp: u64,
+            level: u8,
+        }
+
+        // First roundtrip - with values
+        let original = StatusReport {
+            status: "ok".into(),
+            timestamp: 1234567890,
+            level: 5,
+        };
+
+        let template1 = original.to_string();
+        let parsed1 = StatusReport::from_string(&template1).unwrap();
+        
+        // Missing fields get defaults
+        assert_eq!(parsed1.status, "ok");
+        assert_eq!(parsed1.timestamp, 0);
+        assert_eq!(parsed1.level, 0);
+
+        // Second roundtrip - template stays the same
+        let template2 = parsed1.to_string();
+        assert_eq!(template1, template2);
+        
+        let parsed2 = StatusReport::from_string(&template2).unwrap();
+        assert_eq!(parsed2, parsed1);
+    }
+
+    #[test]
+    fn missing_field_with_duplicate_placeholders() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{id}-{id}-{id}", allow_missing_placeholders)]
+        struct DuplicateWithMissing {
+            id: char,
+            extra: String,
+        }
+
+        let instance = DuplicateWithMissing {
+            id: 'A',
+            extra: "not_in_template".into(),
+        };
+
+        let template = instance.to_string();
+        assert_eq!(template, "A-A-A");
+
+        let parsed = DuplicateWithMissing::from_string(&template).unwrap();
+        assert_eq!(parsed.id, 'A');
+        assert_eq!(parsed.extra, ""); // Default
+    }
+
+    #[test]
+    fn missing_field_empty_template() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "constant_text", allow_missing_placeholders)]
+        struct NoPlaceholders {
+            field1: String,
+            field2: u32,
+        }
+
+        let instance = NoPlaceholders {
+            field1: "value".into(),
+            field2: 100,
+        };
+
+        let template = instance.to_string();
+        assert_eq!(template, "constant_text");
+
+        let parsed = NoPlaceholders::from_string(&template).unwrap();
+        assert_eq!(parsed.field1, "");
+        assert_eq!(parsed.field2, 0);
+    }
+
+    #[test]
+    fn missing_field_complex_template() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "Name: {name}, Age: {age}", allow_missing_placeholders)]
+        struct Person {
+            name: String,
+            age: u8,
+            email: String,
+            phone: String,
+            address: String,
+        }
+
+        let person = Person {
+            name: "Alice".into(),
+            age: 30,
+            email: "alice@example.com".into(),
+            phone: "555-1234".into(),
+            address: "123 Main St".into(),
+        };
+
+        let template = person.to_string();
+        assert_eq!(template, "Name: Alice, Age: 30");
+
+        let parsed = Person::from_string(&template).unwrap();
+        assert_eq!(parsed.name, "Alice");
+        assert_eq!(parsed.age, 30);
+        assert_eq!(parsed.email, "");
+        assert_eq!(parsed.phone, "");
+        assert_eq!(parsed.address, "");
+    }
+
+    #[test]
+    fn missing_field_with_consecutive_types() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{flag}{ch}", allow_missing_placeholders)]
+        struct ConsecutiveWithMissing {
+            flag: bool,
+            ch: char,
+            extra1: String,
+            extra2: u32,
+        }
+
+        let instance = ConsecutiveWithMissing {
+            flag: true,
+            ch: 'X',
+            extra1: "ignored".into(),
+            extra2: 999,
+        };
+
+        let template = instance.to_string();
+        assert_eq!(template, "trueX");
+
+        let parsed = ConsecutiveWithMissing::from_string(&template).unwrap();
+        assert_eq!(parsed.flag, true);
+        assert_eq!(parsed.ch, 'X');
+        assert_eq!(parsed.extra1, "");
+        assert_eq!(parsed.extra2, 0);
+    }
+
+    #[test]
+    fn missing_field_only_first_field_in_template() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{first}", allow_missing_placeholders)]
+        struct FirstOnly {
+            first: String,
+            second: String,
+            third: String,
+        }
+
+        let instance = FirstOnly {
+            first: "one".into(),
+            second: "two".into(),
+            third: "three".into(),
+        };
+
+        let template = instance.to_string();
+        assert_eq!(template, "one");
+
+        let parsed = FirstOnly::from_string(&template).unwrap();
+        assert_eq!(parsed.first, "one");
+        assert_eq!(parsed.second, "");
+        assert_eq!(parsed.third, "");
+    }
+
+    #[test]
+    fn missing_field_only_last_field_in_template() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "result={last}", allow_missing_placeholders)]
+        struct LastOnly {
+            first: u32,
+            second: bool,
+            last: String,
+        }
+
+        let instance = LastOnly {
+            first: 100,
+            second: true,
+            last: "final".into(),
+        };
+
+        let template = instance.to_string();
+        assert_eq!(template, "result=final");
+
+        let parsed = LastOnly::from_string(&template).unwrap();
+        assert_eq!(parsed.first, 0);
+        assert_eq!(parsed.second, false);
+        assert_eq!(parsed.last, "final");
+    }
+
+    #[test]
+    fn missing_field_alternating_pattern() {
+        #[derive(Template, Debug, PartialEq)]
+        #[templatia(template = "{a}:{c}", allow_missing_placeholders)]
+        struct Alternating {
+            a: String,
+            b: String,
+            c: String,
+            d: String,
+        }
+
+        let instance = Alternating {
+            a: "A".into(),
+            b: "B".into(),
+            c: "C".into(),
+            d: "D".into(),
+        };
+
+        let template = instance.to_string();
+        assert_eq!(template, "A:C");
+
+        let parsed = Alternating::from_string(&template).unwrap();
+        assert_eq!(parsed.a, "A");
+        assert_eq!(parsed.b, ""); // Missing
+        assert_eq!(parsed.c, "C");
+        assert_eq!(parsed.d, ""); // Missing
+    }
+}
