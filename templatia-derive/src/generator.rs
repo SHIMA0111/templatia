@@ -169,7 +169,14 @@ pub(crate) fn generate_str_parser(
         }
     };
 
-    let dup_conds = dup_checks
+    // Generate duplicate check code that expands to base_value != dup_value.
+    // At execution time, the comparison operation is statically determined. In most cases,
+    // static comparison is more efficient than dynamic comparison.
+    // To ensure duplicate placeholders don't receive different values,
+    // all duplicate placeholders must be checked.
+    // If there are N duplicate placeholders, this comparison approach is O(N).
+    // Using dynamic comparison does not appear to reduce this complexity.
+    let dup_conditions = dup_checks
         .iter()
         .map(|(base, dup, _)| quote! { #dup != #base });
     let dup_names = dup_checks.iter().map(|(_, _, name)| quote! { #name });
@@ -180,7 +187,7 @@ pub(crate) fn generate_str_parser(
         #generated_full_parser
             .try_map(|#tuple_pattern, span| {
             #(
-                if #dup_conds {
+                if #dup_conditions {
                     return Err(::templatia::__private::chumsky::error::Rich::custom(
                         span,
                         format!(
