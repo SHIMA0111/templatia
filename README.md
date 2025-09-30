@@ -1,31 +1,43 @@
 # templatia
 
-A library for turning structs into simple text templates and parsing them back. It consists of:
+A template-based serialization/deserialization library that enables seamless bidirectional conversion between Rust structs and text according to user-defined templates.
+This library is realized through two crates:
 
-- templatia: the core trait and error type
-- templatia-derive: a procedural macro that implements the trait for your struct
+- templatia: A library providing core traits and errors
+- templatia-derive: A macro library that automatically generates logic for bidirectional conversion between structs and text according to user templates
 
-Both crates are part of this repository. Most users will depend only on templatia with the derive feature enabled.
+Typically, these are not used individually but combined via the `derive` feature of `templatia`.
+(However, since templatia-derive currently only supports `named_struct`, custom implementations are also possible for special types.)
 
 ## Features
-- Derive Template for named structs
-- Auto-generate a default template (one field per line: `name = {name}`)
-- Optional custom template via attribute: `#[templatia(template = "...")]`
-- Round-trip support: `to_string` and `from_string`
-- Clear error reporting (`TemplateError`)
+- Seamless bidirectional conversion between Rust structs and text
+- Default template with all fields in key-value format: `{field_name} = {field_name}`
+- Custom template definition using `templatia` attribute: `#[templatia(template = "...")]`
+- Clear runtime errors and understandable compile errors
+  - Examples of compile errors
+    - Compile error for consecutive ambiguous combinations
+      - StructName: Placeholder "field1" and "field2" are consecutive. These are ambiguous to parsing.
+        "field1" is `String` type data. Consecutive allows only: [char, bool]
+    - Compile error when not all struct fields are included in template placeholders
+      - StructName has more field specified than the template's placeholders: field1, field2, field3
+        If you want to allow missing placeholders, use `#[templatia(allow_missing_placeholders)]` attribute.
 
 ## Minimum supported Rust version (MSRV)
 - Rust 1.85.0
 - Edition 2024
 
 ## Installation
-Add templatia to your Cargo.toml. You can either:
+### Using the cargo add command
+```shell
+cargo add templatia --features derive
+```
 
-1) Use the derive feature and import everything from templatia
+### Direct specification in Cargo.toml
+1) Import templatia. Add `derive` to features.
 
 ```toml
 [dependencies]
-templatia = { version = "0.0.1", features = ["derive"] }
+templatia = { version = "0.0.2", features = ["derive"] }
 ```
 
 ```rust
@@ -46,17 +58,35 @@ fn main() {
 ```
 
 
-## Usage
+## Quick Start Guide
 ### Default template
-When no template is specified, a default template is synthesized with one field per line:
+When no template is specified, each field is synthesized in the format `field_name = {field_name}`, one per line.
+For example:
+```rust
+#[derive(Template)]
+struct AwesomeStruct {
+  data1: String,
+  data2: u32,
+}
 
+fn main() {
+  let data = AwesomeStruct { data1: "data1".into(), data2: 100 };
+}
+```
+In this case, the template is generated in the format:
 ```text
-name = {name}
-port = {port}
+data1 = {data1}
+data2 = {data2}
+```
+When executing to_string(), you get the output:
+```text
+data1 = data1
+data2 = 100
 ```
 
 ### Custom template
-Provide a custom format using the templatia attribute and placeholder names that match your struct fields:
+By using placeholders enclosed in `{}` with struct field names in the `template` within the `templatia` attribute, you can define a custom template.
+In the following case, since `"{host}:{port}"` is defined, you can obtain `db.example.com:3306` from `cfg`.
 
 ```rust
 use templatia::Template;
@@ -81,9 +111,11 @@ fn main() {
 ### Placeholders and types
 - Each `{name}` in the template must correspond to a named struct field
 - Field types used in the template must implement Display and FromStr
-- Duplicate placeholders are allowed, but values must be consistent if they appear more than once
+  - When `allow_missing_placeholders` is enabled, the Default trait implementation is also required.
+- It is possible to use placeholders for the same field multiple times within the template, but during from_string() the placeholders for the same field must have the same value.
+  - For example, if the template is `"{first_name} (Full: {first_name} {family_name})"`, you cannot deserialize `Taro (Full: Jiro Yamada)` into the struct.
 
-## Errors
+## Runtime Errors
 templatia defines a simple error type for parsing and validation:
 
 - TemplateError::InconsistentValues { placeholder, first_value, second_value }
@@ -93,7 +125,9 @@ templatia defines a simple error type for parsing and validation:
 
 ## Crates overview
 - templatia
-  - Template trait with two methods: `fn to_string(&self) -> String` and `fn from_string(s: &str) -> Result<Self::Struct, Self::Error>`
+  - Template trait
+    - A trait that defines the behavior of `templatia`.
+      It defines two methods: `to_string()` and `from_string()`, and related type: `Error`.
   - TemplateError enum for error reporting
 - templatia-derive
   - #[derive(Template)] macro for named structs
@@ -102,12 +136,13 @@ templatia defines a simple error type for parsing and validation:
 
 ## Feature flags
 - derive
-  - Enables the re-export of the proc-macro and the internal parser dependency needed for parsing from strings
+  - A flag that enables templatia-derive. By enabling this, you can derive `templatia::Template`.
 
 ## Road Map (0.0.x roadmap toward 0.1.0)
 - 0.0.2
   - [x] Define default behavior for missing data: `#[templatia(allow_missing_placeholders)]` attribute allows fields not in template to use `Default::default()`
   - [ ] Option<T>: default to `None` when the placeholder is absent (automatic support without requiring `allow_missing_placeholders`)
+  - [ ] Remove `type Struct` from `Template` trait
 - 0.0.3
   - [ ] Enrich error handling and warnings (clearer diagnostics and coverage)
 - 0.0.4
@@ -124,8 +159,8 @@ This repository follows AGENTS.md for documentation and testing conventions. In 
 
 ## License
 Dual-licensed under either of:
-- Apache License, Version 2.0 (LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license (LICENSE-MIT or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-ap.md) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-mit.md) or http://opensource.org/licenses/MIT)
 
 You may use this software under the terms of either license.
 

@@ -1,30 +1,43 @@
 # templatia
 
-構造体をシンプルなテキストテンプレートへ変換し、文字列から再構築するためのRustライブラリです。構成は以下の2クレートです。
+Rustの構造体とテキストのシームレスな相互変換をユーザが定義するテンプレートに従って実現するテンプレートベースのシリアライズ/デシリアライズライブラリです。
+このライブラリは以下の二つのクレートから実現しています。
 
-- templatia: コアのトレイトとエラー型
-- templatia-derive: 構造体用の実装を自動生成するプロシージャルマクロ
+- templatia: コアのトレイトとエラーを提供するライブラリ
+- templatia-derive: ユーザのテンプレートに従って構造体とテキストの相互互換を実現するための処理を自動生成するマクロライブラリ
 
-どちらのクレートも本リポジトリに含まれます。多くの利用者は、templatia を derive 機能とともに依存に追加するだけで利用できます。
+通常はどちらかを単体で利用するのではなく、`templatia`の`derive`feature経由で組み合わせて利用することが想定されたライブラリです。
+(ただし、templatia-deriveは現時点では`named_struct`のみをサポートしているため、特殊な型には独自実装することも可能です。)
 
 ## 特徴
-- 名前付き構造体に対する Template の導出
-- デフォルトのテンプレートを自動生成（1フィールド1行: `name = {name}`）
-- 属性でカスタムテンプレートを指定: `#[templatia(template = "...")]`
-- ラウンドトリップ対応: `to_string` と `from_string`
-- 分かりやすいエラー（`TemplateError`）
+- Rustの構造体とテキストのシームレスな相互変換
+- デフォルトテンプレートとして全てのフィールドをkey-value形式: `{field_name} = {field_name}`
+- `templatia`属性を利用したカスタムテンプレートの定義: `#[templatia(template = "...")]`
+- 明確な実行時エラーと分かりやすいコンパイルエラーの出力
+  - コンパイルエラーの例
+    - 隣り合うことで曖昧さを生む組み合わせの接触コンパイルエラー
+      - StructName: Placeholder "field1" and "field2" are consecutive. These are ambiguous to parsing.
+        "field1" is `String` type data. Consecutive allows only: [char, bool]
+    - 構造体フィールド全てがテンプレート内のプレースホルダーに含まれない場合のコンパイルエラー
+      - StructName has more field specified than the template's placeholders: field1, field2, field3
+        If you want to allow missing placeholders, use `#[templatia(allow_missing_placeholders)]` attribute.
+
 
 ## 対応Rustバージョン（MSRV）
 - Rust 1.85.0
 - Edition 2024
 
 ## インストール
-Cargo.toml に templatia を追加します。
+### cargo addコマンドを利用する
+```shell
+cargo add templatia --features derive
+```
 
-1) templatiaをインポートする。通常featuresに"derive"を追加して利用することを想定しています。
+### Cargo.tomlで直接記述する
+1) templatiaをインポートする。featuresには`derive`を追加します。
 ```toml
 [dependencies]
-templatia = { version = "0.0.1", features = ["derive"] }
+templatia = { version = "0.0.2", features = ["derive"] }
 ```
 
 ```rust
@@ -44,17 +57,36 @@ fn main() {
 }
 ```
 
-## 使い方
-### デフォルトテンプレート
-テンプレートを指定しない場合、各フィールドが1行ずつ `name = {name}` という形式で合成されます。
+## クイックスタートガイド
+### デフォルトのテンプレート
+テンプレートを指定しない場合、各フィールドが1行ずつ `field_name = {field_name}` という形式で合成されます。
+例えば
+```rust
+#[derive(Template)]
+struct AwesomeStruct {
+  data1: String,
+  data2: u32,
+}
 
-```text
-name = {name}
-port = {port}
+fn main() {
+  let data = AwesomeStruct { data1: "data1".into(), data2: 100 };
+}
 ```
+のようにした場合は
+```text
+data1 = {data1}
+data2 = {data2}
+```
+という形式でテンプレートが生成され、to_string()を実行した場合には
+```text
+data1 = data1
+data2 = 100
+```
+という出力を得ることができます。
 
 ### カスタムテンプレート
-構造体のフィールド名のプレースホルダを使い、templatia 属性で書式を指定できます。
+`templatia`属性内の`template`に構造体のフィールド名で`{}`で囲ったプレースホルダーを使用すると、カスタムのテンプレートを定義できます。  
+以下のケースでは`"{host}:{port}"`を定義しているため、`cfg`からは`db.example.com:3306`を得ることができます。
 ```rust
 use templatia::Template;
 
@@ -78,9 +110,11 @@ fn main() {
 ### プレースホルダと型
 - テンプレート内の `{name}` は、該当する名前付きフィールドと一致している必要があります
 - テンプレートで使用されるフィールド型は Display と FromStr を実装している必要があります
-- 同じプレースホルダを複数回登場させることは可能ですが、解析結果は互いに矛盾しない必要があります
+  - `allow_missing_placeholders`を有効にしている場合にはDefaultの実装も必要になります。
+- 同じフィールドのプレースホルダーを複数回テンプレート内で利用することが可能ですが、from_string()時には同じフィールドのプレースホルダーは同じ値である必要があります。
+  - `"{first_name} (Full: {first_name} {family_name})"`となっていた場合に`Taro (Full: Jiro Yamada)`を構造体にデシリアライズすることはできません。
 
-## エラー
+## 実行時エラー
 templatia は解析や検証に関するシンプルなエラー型を提供します。
 
 - TemplateError::InconsistentValues { placeholder, first_value, second_value }
@@ -90,21 +124,24 @@ templatia は解析や検証に関するシンプルなエラー型を提供し�
 
 ## クレート概要
 - templatia
-  - Template トレイト（`fn to_string(&self) -> String` と `fn from_string(s: &str) -> Result<Self::Struct, Self::Error>`）
-  - エラー報告のための TemplateError 列挙型
+  - Template トレイト
+    - `templatia`の振る舞いを定義したトレイトです。  
+      `to_string()`と`from_string()`という二つのメソッドと関連型の`Error`を定義しています。
+  - TemplateError
+    - templatia-deriveのデフォルトのエラーです。
 - templatia-derive
-  - 名前付き構造体用の #[derive(Template)] マクロ
+  - #[derive(Template)] マクロ
   - オプション属性: `#[templatia(template = "...")]`
-  - プレースホルダが実在するフィールドに対応しているか検証
 
 ## フィーチャフラグ
 - derive
-  - 
+  - templatia-deriveを有効にするフラグです。これを有効にすることで`templatia::Template`をderiveできるようになります。
 
 ## Road Map（0.0.x → 0.1.0）
 - 0.0.2
   - [x] 欠損データのデフォルト挙動を定義: `#[templatia(allow_missing_placeholders)]` 属性により、テンプレートに含まれないフィールドを `Default::default()` で初期化可能
   - [ ] Option<T>: プレースホルダが無い場合は既定で None（`allow_missing_placeholders` 不要で自動対応）
+  - [ ] `Template`構造体から関連型の`type Struct`を削除
 - 0.0.3
   - [ ] エラーハンドリングと警告の充実化（診断の明確化とカバレッジ拡大）
 - 0.0.4
@@ -121,8 +158,8 @@ templatia は解析や検証に関するシンプルなエラー型を提供し�
 
 ## ライセンス
 次のいずれかのライセンスでデュアルライセンスされています:
-- Apache License, Version 2.0 (LICENSE-APACHE または http://www.apache.org/licenses/LICENSE-2.0)
-- MIT ライセンス (LICENSE-MIT または http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-ap.md) または http://www.apache.org/licenses/LICENSE-2.0)
+- MIT ライセンス ([LICENSE-MIT](LICENSE-mit.md) または http://opensource.org/licenses/MIT)
 
 いずれかの条件に従って本ソフトウェアを利用できます。
 
