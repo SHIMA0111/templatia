@@ -32,8 +32,8 @@ mod utils;
 
 use crate::generator::generate_str_parser;
 use crate::parser::{TemplateSegments, parse_template};
-use darling::FromDeriveInput;
-use darling::util::Override;
+use darling::{FromDeriveInput};
+use darling::util::{Flag, Override};
 use proc_macro::TokenStream;
 use quote::quote;
 use std::collections::HashSet;
@@ -49,6 +49,8 @@ struct TemplateOpts {
     /// Optional template string provided via `#[templatia(template = "...")]`.
     #[darling(default)]
     template: Override<String>,
+    #[darling(default)]
+    allow_missing_placeholders: Flag,
 }
 
 /// Derive macro for implementing `templatia::Template` trait on named structs.
@@ -102,6 +104,8 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         }
     };
 
+    let allow_missing_placeholders = opts.allow_missing_placeholders.is_present();
+
     let segments = match parse_template(&template) {
         Ok(segments) => segments,
         Err(e) => {
@@ -149,7 +153,8 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
             }
         })
         .collect::<HashSet<_>>();
-    let str_from_parser = generate_str_parser(name, all_fields, &placeholder_names, &segments);
+    let str_from_parser = generate_str_parser(
+        name, all_fields, &placeholder_names, &segments, allow_missing_placeholders);
 
     // Generate trait bound
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
@@ -168,15 +173,22 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
     let mut new_where_clause = where_clause
         .cloned()
         .unwrap_or_else(|| syn::parse_quote! { where });
+
     for field in used_fields {
         let field_ty = &field.ty;
         if !new_where_clause.predicates.is_empty() {
             // push_punct adds a comma between predicates.
             new_where_clause.predicates.push_punct(Default::default());
         }
-        new_where_clause.predicates.push(syn::parse_quote! {
-            #field_ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq
-        });
+        if !allow_missing_placeholders {
+            new_where_clause.predicates.push(syn::parse_quote! {
+                #field_ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq
+            });
+        } else {
+            new_where_clause.predicates.push(syn::parse_quote! {
+                #field_ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq + ::std::default::Default
+            });
+        }
         new_where_clause.predicates.push(syn::parse_quote! {
             <#field_ty as ::std::str::FromStr>::Err: ::std::fmt::Display
         })

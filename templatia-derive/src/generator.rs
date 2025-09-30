@@ -9,11 +9,18 @@ pub(crate) fn generate_str_parser(
     all_fields: &[syn::Field],
     placeholder_names: &HashSet<String>,
     segments: &[TemplateSegments],
+    allow_missing_placeholders: bool,
 ) -> proc_macro2::TokenStream {
-    // Get the field name
-    let all_field_names = all_fields
+    // Get the field ident
+    let all_field_idents = all_fields
         .iter()
-        .filter_map(|f| f.ident.as_ref().map(|id| id.to_string()))
+        .filter_map(|f| f.ident.as_ref())
+        .collect::<HashSet<_>>();
+
+    // Get the field name
+    let all_field_names = all_field_idents
+        .iter()
+        .map(ToString::to_string)
         .collect::<HashSet<_>>();
 
     for name in placeholder_names {
@@ -119,16 +126,46 @@ pub(crate) fn generate_str_parser(
     // And also, the template can have a duplicate key so the vec for the duplication checks is also returned.
     let (tuple_pattern, dup_checks) = generate_tuple_pattern(&field_names);
 
-    // Construct the struct from unique field names (placeholders may repeat in the template)
-    let mut seen_fields = HashSet::new();
-    let unique_field_names = field_names
+    // Unique field names included in the template
+    let unique_field_names = placeholder_names
         .iter()
-        .filter(|ident| seen_fields.insert(ident.to_string()))
+        .map(|name| syn::Ident::new(name, proc_macro2::Span::call_site()))
         .collect::<Vec<_>>();
+
+    // Missing field name in the template compared with the struct's field names
+    let missing_placeholders = all_field_idents
+        .iter()
+        .filter(|&&ident| !placeholder_names.contains(&ident.to_string()))
+        .collect::<Vec<_>>();
+
+    if !allow_missing_placeholders && !missing_placeholders.is_empty() {
+        let error = syn::Error::new(
+            proc_macro2::Span::call_site(),
+            format!(
+                "{} has more field specified than the template's placeholders: {}\n\
+                If you want to allow missing placeholders, \
+                use `#[templatia(allow_missing_placeholders)]` attribute.",
+                struct_name.to_string(),
+                missing_placeholders
+                    .iter()
+                    .map(|ident| ident.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        );
+        return error.to_compile_error().into();
+    }
 
     let struct_constructor = quote! {
         #struct_name {
-            #(#unique_field_names),*
+            // #(#Awesome,)* will be expanded to #Awesome, #Awesome, #Awesome <- This is the correct behavior.
+            // #(#Awesome),* will be expanded to #Awesome, #Awesome
+            //  - BAD implementation. unique_field_names is not empty, and the missing_placeholders is also empty,
+            //    the comma of the last element from the unique_field_names not be added comma,
+            //    so the next element from the missing_placeholders returns error.
+            // #(#Awesome),*, will be expanded to #Awesome, #Awesome,... but even if the element is empty, the comma is still there. This causes the error.
+            #(#unique_field_names,)*
+            #(#missing_placeholders: Default::default(),)*
         }
     };
 
