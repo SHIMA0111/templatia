@@ -19,7 +19,7 @@ pub(crate) fn validate_template_safety(
             if !allowed_consecutive {
                 return Err(
                     format!(
-                        "Placeholder \"{0}\" and \"{1}\" is consecutive. These are ambiguous to parsing.\
+                        "Placeholder \"{0}\" and \"{1}\" are consecutive. These are ambiguous to parsing.\
                         \n\"{0}\" is `{2}` type data. Consecutive allows only: [{3}]",
                         first, second, first_type_name, CONSECUTIVE_PLACEHOLDER_ALLOWED_TYPE.join(", ")
                     )
