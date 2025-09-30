@@ -20,11 +20,13 @@ The initial v0.0.2 roadmap included four items:
 
 - **String-specific configurable handler**: Removed due to lack of consistency. There is no justification for treating `String` fields differently from other types like `u32`, `bool`, or `char`. All types use `Default::default()` when missing, which provides a uniform and predictable behavior. Additionally, the existing `allow_missing_placeholders` attribute already provides the binary choice (error vs default), making a String-specific option redundant.
 
+**Added Items:**
+- **Remove `type::Struct` from Template trait**: Added to reduce complexity. The trait is implemented for a struct, the type of the struct should be itself.
+
 ### Design Rationale
 
 The revised v0.0.2 roadmap follows these principles:
 
-1. **Simplicity over complexity**: Binary choices (allow missing vs error) are clearer than multi-option configurations
+1. **Simplicity over complexity**: Binary choices (allow missing vs error) are clearer than multi-option configurations. Also, the type::Struct removal reduces complexity.
 2. **Consistency**: Treat all types uniformly; avoid special cases for specific types like `String`
 3. **Declarative intent**: Use attributes to make behavior explicit and self-documenting
-
