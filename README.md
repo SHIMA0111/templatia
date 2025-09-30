@@ -104,12 +104,10 @@ templatia defines a simple error type for parsing and validation:
 - derive
   - Enables the re-export of the proc-macro and the internal parser dependency needed for parsing from strings
 
-## Load Map (0.0.x roadmap toward 0.1.0)
+## Road Map (0.0.x roadmap toward 0.1.0)
 - 0.0.2
-  - [ ] Emit warnings when not all struct fields are present in the template during parsing
-  - [ ] Define default behavior for missing data: decide behavior when some or all fields are not included in the template
-  - [ ] Option<T>: default to `None` when the placeholder is absent
-  - [ ] String: add configurable handler for missing placeholders (error vs `String::new()`)
+  - [x] Define default behavior for missing data: `#[templatia(allow_missing_placeholders)]` attribute allows fields not in template to use `Default::default()`
+  - [ ] Option<T>: default to `None` when the placeholder is absent (automatic support without requiring `allow_missing_placeholders`)
 - 0.0.3
   - [ ] Enrich error handling and warnings (clearer diagnostics and coverage)
 - 0.0.4
