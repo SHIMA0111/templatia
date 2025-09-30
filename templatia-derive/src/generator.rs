@@ -169,13 +169,13 @@ pub(crate) fn generate_str_parser(
         }
     };
 
-    // Generate the duplicate check code which will be expanded to base_value != dup_value
-    // Therefore, the execution time, the compare operation is statically determined.
-    // Almost cases, the compare is more efficient than the dynamic compare.
-    // To avoid the duplication placeholder gets different value, at least we need to check all the duplication placeholders.
-    // In case, the duplication placeholders are N, the naive compare operation with if, this operation is O(N).
-    // If we use the dynamic compare operation, we cannot reduce the order from my understanding.
-    // (If you have any idea to reduce the order, please let us know!!)
+    // Generate duplicate check code that expands to base_value != dup_value.
+    // At execution time, the comparison operation is statically determined. In most cases,
+    // static comparison is more efficient than dynamic comparison.
+    // To ensure duplicate placeholders don't receive different values,
+    // all duplicate placeholders must be checked.
+    // If there are N duplicate placeholders, this comparison approach is O(N).
+    // Using dynamic comparison does not appear to reduce this complexity.
     let dup_conditions = dup_checks
         .iter()
         .map(|(base, dup, _)| quote! { #dup != #base });
