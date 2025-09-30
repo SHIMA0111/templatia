@@ -18,7 +18,7 @@ Rustの構造体とテキストのシームレスな相互変換をユーザが�
     - 隣り合うことで曖昧さを生む組み合わせの接触コンパイルエラー
       - StructName: Placeholder "field1" and "field2" are consecutive. These are ambiguous to parsing.
         "field1" is `String` type data. Consecutive allows only: [char, bool]
-    - 構造体フィールド全てがテンプレート内のプレースホルダーに含まれない場合のコンパルエラー
+    - 構造体フィールド全てがテンプレート内のプレースホルダーに含まれない場合のコンパイルエラー
       - StructName has more field specified than the template's placeholders: field1, field2, field3
         If you want to allow missing placeholders, use `#[templatia(allow_missing_placeholders)]` attribute.
 
@@ -112,7 +112,7 @@ fn main() {
 - テンプレートで使用されるフィールド型は Display と FromStr を実装している必要があります
   - `allow_missing_placeholders`を有効にしている場合にはDefaultの実装も必要になります。
 - 同じフィールドのプレースホルダーを複数回テンプレート内で利用することが可能ですが、from_string()時には同じフィールドのプレースホルダーは同じ値である必要があります。
-  - `"{first_name} (Full: {first_name} {familiy_name})"`となっていた場合に`Taro (Full: Jiro Yamada)`を構造体にデシリアライズすることはできません。
+  - `"{first_name} (Full: {first_name} {family_name})"`となっていた場合に`Taro (Full: Jiro Yamada)`を構造体にデシリアライズすることはできません。
 
 ## 実行時エラー
 templatia は解析や検証に関するシンプルなエラー型を提供します。

@@ -113,7 +113,7 @@ fn main() {
 - Field types used in the template must implement Display and FromStr
   - When `allow_missing_placeholders` is enabled, the Default trait implementation is also required.
 - It is possible to use placeholders for the same field multiple times within the template, but during from_string() the placeholders for the same field must have the same value.
-  - For example, if the template is `"{first_name} (Full: {first_name} {familiy_name})"`, you cannot deserialize `Taro (Full: Jiro Yamada)` into the struct.
+  - For example, if the template is `"{first_name} (Full: {first_name} {family_name})"`, you cannot deserialize `Taro (Full: Jiro Yamada)` into the struct.
 
 ## Runtime Errors
 templatia defines a simple error type for parsing and validation:
