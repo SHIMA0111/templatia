@@ -13,7 +13,7 @@ fn default_template_to_string_contains_fields() {
         host: "localhost".into(),
         port: 5432,
     };
-    let s = cfg.to_string();
+    let s = cfg.render_string();
     assert_eq!(s, "host = localhost\nport = 5432");
 }
 
@@ -30,10 +30,10 @@ fn custom_template_roundtrip() {
         host: "example.com".into(),
         port: 8080,
     };
-    let s = url.to_string();
+    let s = url.render_string();
     assert_eq!(s, "url=example.com:8080");
 
-    let parsed = Url::from_string(&s).expect("should parse");
+    let parsed = Url::from_str(&s).expect("should parse");
     assert_eq!(parsed, url);
 }
 
@@ -47,7 +47,7 @@ fn parse_error_is_reported_as_template_error_parse() {
     }
 
     let bad = "host=local\nport=not_a_number";
-    let err = Cfg::from_string(bad).expect_err("expected parse error");
+    let err = Cfg::from_str(bad).expect_err("expected parse error");
     match err {
         templatia::TemplateError::Parse(msg) => {
             assert!(msg.contains("Failed to parse field \"port\""));
@@ -65,7 +65,7 @@ fn duplicate_placeholder_inconsistent_values() {
     }
 
     let bad = "name=alice&again=bob";
-    let err = S::from_string(bad).expect_err("expected inconsistency error");
+    let err = S::from_str(bad).expect_err("expected inconsistency error");
     match err {
         templatia::TemplateError::InconsistentValues {
             placeholder,
@@ -89,7 +89,7 @@ fn duplicate_placeholder_equal_values_ok() {
     }
 
     let ok = "name=alice&again=alice";
-    let parsed = S::from_string(ok).expect("should parse when duplicates equal");
+    let parsed = S::from_str(ok).expect("should parse when duplicates equal");
     assert_eq!(
         parsed,
         S {

@@ -15,10 +15,10 @@ mod default_template_tests {
         let single = SingleField {
             name: "test".into(),
         };
-        let template = single.to_string();
+        let template = single.render_string();
         assert_eq!(template, "name = test");
 
-        let parsed = SingleField::from_string(&template).unwrap();
+        let parsed = SingleField::from_str(&template).unwrap();
         assert_eq!(parsed, single);
     }
 
@@ -36,10 +36,10 @@ mod default_template_tests {
             beta: 42,
             gamma: true,
         };
-        let template = multi.to_string();
+        let template = multi.render_string();
         assert_eq!(template, "alpha = first\nbeta = 42\ngamma = true");
 
-        let parsed = MultiField::from_string(&template).unwrap();
+        let parsed = MultiField::from_str(&template).unwrap();
         assert_eq!(parsed, multi);
     }
 
@@ -66,8 +66,8 @@ mod default_template_tests {
             double_val: std::f64::consts::E,
         };
 
-        let template = nums.to_string();
-        let parsed = NumericTypes::from_string(&template).unwrap();
+        let template = nums.render_string();
+        let parsed = NumericTypes::from_str(&template).unwrap();
         assert_eq!(parsed, nums);
     }
 
@@ -84,10 +84,10 @@ mod default_template_tests {
             flag_false: false,
         };
 
-        let template = bools.to_string();
+        let template = bools.render_string();
         assert_eq!(template, "flag_true = true\nflag_false = false");
 
-        let parsed = BoolValues::from_string(&template).unwrap();
+        let parsed = BoolValues::from_str(&template).unwrap();
         assert_eq!(parsed, bools);
     }
 
@@ -104,10 +104,10 @@ mod default_template_tests {
             normal: "content".into(),
         };
 
-        let template = empty_str.to_string();
+        let template = empty_str.render_string();
         assert_eq!(template, "empty = \nnormal = content");
 
-        let parsed = EmptyString::from_string(&template).unwrap();
+        let parsed = EmptyString::from_str(&template).unwrap();
         assert_eq!(parsed, empty_str);
     }
 }
@@ -132,10 +132,10 @@ mod custom_template_tests {
             database: "production".into(),
         };
 
-        let template = config.to_string();
+        let template = config.render_string();
         assert_eq!(template, "Server: db.example.com | Port: 5432 | DB: production");
 
-        let parsed = ComplexFormat::from_string(&template).unwrap();
+        let parsed = ComplexFormat::from_str(&template).unwrap();
         assert_eq!(parsed, config);
     }
 
@@ -157,10 +157,10 @@ mod custom_template_tests {
             token: "abc123".into(),
         };
 
-        let template = url.to_string();
+        let template = url.render_string();
         assert_eq!(template, "https://api.example.com:443/v1/data?token=abc123");
 
-        let parsed = UrlFormat::from_string(&template).unwrap();
+        let parsed = UrlFormat::from_str(&template).unwrap();
         assert_eq!(parsed, url);
     }
 
@@ -180,10 +180,10 @@ mod custom_template_tests {
             active: true,
         };
 
-        let template = person.to_string();
+        let template = person.render_string();
         assert_eq!(template, r#"{"name": "Alice", "age": 30, "active": true}"#);
 
-        let parsed = JsonLike::from_string(&template).unwrap();
+        let parsed = JsonLike::from_str(&template).unwrap();
         assert_eq!(parsed, person);
     }
 
@@ -203,8 +203,8 @@ mod custom_template_tests {
             notes: "Test notes with symbols: @#$%^&*()".into(),
         };
 
-        let template = user.to_string();
-        let parsed = SpecialChars::from_string(&template).unwrap();
+        let template = user.render_string();
+        let parsed = SpecialChars::from_str(&template).unwrap();
         assert_eq!(parsed, user);
     }
 
@@ -220,10 +220,10 @@ mod custom_template_tests {
             value: "just_this".into(),
         };
 
-        let template = minimal.to_string();
+        let template = minimal.render_string();
         assert_eq!(template, "just_this");
 
-        let parsed = Minimal::from_string(&template).unwrap();
+        let parsed = Minimal::from_str(&template).unwrap();
         assert_eq!(parsed, minimal);
     }
 }
@@ -244,10 +244,10 @@ mod duplicate_placeholder_tests {
             name: "Alice".into(),
         };
 
-        let template = greeting.to_string();
+        let template = greeting.render_string();
         assert_eq!(template, "Hello Alice! Welcome back, Alice!");
 
-        let parsed = Greeting::from_string(&template).unwrap();
+        let parsed = Greeting::from_str(&template).unwrap();
         assert_eq!(parsed, greeting);
     }
 
@@ -261,10 +261,10 @@ mod duplicate_placeholder_tests {
 
         let multi = MultiId { id: 12345 };
 
-        let template = multi.to_string();
+        let template = multi.render_string();
         assert_eq!(template, "12345-12345-12345-12345");
 
-        let parsed = MultiId::from_string(&template).unwrap();
+        let parsed = MultiId::from_str(&template).unwrap();
         assert_eq!(parsed, multi);
     }
 
@@ -276,7 +276,7 @@ mod duplicate_placeholder_tests {
             name: String,
         }
 
-        let result = Inconsistent::from_string("first=alice, second=bob");
+        let result = Inconsistent::from_str("first=alice, second=bob");
         
         match result {
             Err(TemplateError::InconsistentValues {
@@ -300,7 +300,7 @@ mod duplicate_placeholder_tests {
             port: u16,
         }
 
-        let result = NumericInconsistent::from_string("port1=8080 port2=9090");
+        let result = NumericInconsistent::from_str("port1=8080 port2=9090");
         
         match result {
             Err(TemplateError::InconsistentValues {
@@ -332,10 +332,10 @@ mod duplicate_placeholder_tests {
             version: "v1.0".into(),
         };
 
-        let template = mixed.to_string();
+        let template = mixed.render_string();
         assert_eq!(template, "prod-api-prod-v1.0");
 
-        let parsed = MixedDuplicates::from_string(&template).unwrap();
+        let parsed = MixedDuplicates::from_str(&template).unwrap();
         assert_eq!(parsed, mixed);
     }
 }
@@ -352,7 +352,7 @@ mod error_handling_tests {
             port: u16,
         }
 
-        let result = PortConfig::from_string("port=not_a_number");
+        let result = PortConfig::from_str("port=not_a_number");
         
         match result {
             Err(TemplateError::Parse(msg)) => {
@@ -370,7 +370,7 @@ mod error_handling_tests {
             enabled: bool,
         }
 
-        let result = BoolConfig::from_string("enabled=maybe");
+        let result = BoolConfig::from_str("enabled=maybe");
         
         match result {
             Err(TemplateError::Parse(msg)) => {
@@ -388,7 +388,7 @@ mod error_handling_tests {
             value: u8,
         }
 
-        let result = OverflowTest::from_string("value=256");
+        let result = OverflowTest::from_str("value=256");
         
         match result {
             Err(TemplateError::Parse(_)) => {
@@ -406,7 +406,7 @@ mod error_handling_tests {
             count: u32,
         }
 
-        let result = UnsignedTest::from_string("count=-1");
+        let result = UnsignedTest::from_str("count=-1");
         
         match result {
             Err(TemplateError::Parse(_)) => {
@@ -426,7 +426,7 @@ mod error_handling_tests {
         }
 
         // Missing colon separator
-        let result = HostPort::from_string("host=localhost 8080");
+        let result = HostPort::from_str("host=localhost 8080");
         
         match result {
             Err(TemplateError::Parse(_)) => {
@@ -445,7 +445,7 @@ mod error_handling_tests {
         }
 
         // Missing suffix
-        let result = PrefixSuffix::from_string("prefix_test");
+        let result = PrefixSuffix::from_str("prefix_test");
         
         match result {
             Err(TemplateError::Parse(_)) => {
@@ -469,8 +469,8 @@ mod type_constraint_tests {
         }
 
         let original = FloatTest { value: std::f64::consts::PI };
-        let template = original.to_string();
-        let parsed = FloatTest::from_string(&template).unwrap();
+        let template = original.render_string();
+        let parsed = FloatTest::from_str(&template).unwrap();
         
         // Allow for floating point precision differences
         assert!((parsed.value - original.value).abs() < 1e-10);
@@ -490,8 +490,8 @@ mod type_constraint_tests {
             min_val: i64::MIN,
         };
 
-        let template = extreme.to_string();
-        let parsed = ExtremeValues::from_string(&template).unwrap();
+        let template = extreme.render_string();
+        let parsed = ExtremeValues::from_str(&template).unwrap();
         assert_eq!(parsed, extreme);
     }
 
@@ -509,8 +509,8 @@ mod type_constraint_tests {
             float_zero: 0.0,
         };
 
-        let template = zeros.to_string();
-        let parsed = ZeroValues::from_string(&template).unwrap();
+        let template = zeros.render_string();
+        let parsed = ZeroValues::from_str(&template).unwrap();
         assert_eq!(parsed, zeros);
     }
 
@@ -526,8 +526,8 @@ mod type_constraint_tests {
             name: "  spaced  name  ".into(),
         };
 
-        let template = whitespace.to_string();
-        let parsed = WhitespaceTest::from_string(&template).unwrap();
+        let template = whitespace.render_string();
+        let parsed = WhitespaceTest::from_str(&template).unwrap();
         assert_eq!(parsed, whitespace);
     }
 
@@ -543,8 +543,8 @@ mod type_constraint_tests {
             content: "line1\nline2\nline3".into(),
         };
 
-        let template = multiline.to_string();
-        let parsed = NewlineTest::from_string(&template).unwrap();
+        let template = multiline.render_string();
+        let parsed = NewlineTest::from_str(&template).unwrap();
         assert_eq!(parsed, multiline);
     }
 }
@@ -574,8 +574,8 @@ mod field_combination_tests {
             field_f: "omega".into(),
         };
 
-        let template = many.to_string();
-        let parsed = ManyFields::from_string(&template).unwrap();
+        let template = many.render_string();
+        let parsed = ManyFields::from_str(&template).unwrap();
         assert_eq!(parsed, many);
     }
 
@@ -595,10 +595,10 @@ mod field_combination_tests {
             c: false,
         };
 
-        let template = mixed.to_string();
+        let template = mixed.render_string();
         assert_eq!(template, "false-middle-999");
 
-        let parsed = MixedOrder::from_string(&template).unwrap();
+        let parsed = MixedOrder::from_str(&template).unwrap();
         assert_eq!(parsed, mixed);
     }
 
@@ -612,10 +612,10 @@ mod field_combination_tests {
 
         let repeated = RepeatedField { x: 'A' };
 
-        let template = repeated.to_string();
+        let template = repeated.render_string();
         assert_eq!(template, "AAAAAAAA");
 
-        let parsed = RepeatedField::from_string(&template).unwrap();
+        let parsed = RepeatedField::from_str(&template).unwrap();
         assert_eq!(parsed, repeated);
     }
 }
@@ -640,13 +640,13 @@ mod roundtrip_tests {
         };
 
         // First round-trip
-        let template1 = original.to_string();
-        let parsed1 = RoundtripTest::from_string(&template1).unwrap();
+        let template1 = original.render_string();
+        let parsed1 = RoundtripTest::from_str(&template1).unwrap();
         assert_eq!(parsed1, original);
 
         // Second round-trip
-        let template2 = parsed1.to_string();
-        let parsed2 = RoundtripTest::from_string(&template2).unwrap();
+        let template2 = parsed1.render_string();
+        let parsed2 = RoundtripTest::from_str(&template2).unwrap();
         assert_eq!(parsed2, original);
 
         // Templates should be identical
@@ -670,8 +670,8 @@ mod roundtrip_tests {
         // Multiple round-trips
         let mut current = original.clone();
         for _ in 0..5 {
-            let template = current.to_string();
-            current = CustomRoundtrip::from_string(&template).unwrap();
+            let template = current.render_string();
+            current = CustomRoundtrip::from_str(&template).unwrap();
         }
 
         assert_eq!(current, original);
@@ -706,8 +706,8 @@ mod roundtrip_tests {
         ];
 
         for original in edge_cases {
-            let template = original.to_string();
-            let parsed = EdgeCaseRoundtrip::from_string(&template).unwrap();
+            let template = original.render_string();
+            let parsed = EdgeCaseRoundtrip::from_str(&template).unwrap();
             assert_eq!(parsed, original, "Failed roundtrip for: {:?}", original);
         }
     }
@@ -731,10 +731,10 @@ mod consecutive_placeholder_tests {
             second: 'B',
         };
 
-        let template = chars.to_string();
+        let template = chars.render_string();
         assert_eq!(template, "AB");
 
-        let parsed = ConsecutiveChars::from_string(&template).unwrap();
+        let parsed = ConsecutiveChars::from_str(&template).unwrap();
         assert_eq!(parsed, chars);
     }
 
@@ -752,10 +752,10 @@ mod consecutive_placeholder_tests {
             flag2: false,
         };
 
-        let template = bools.to_string();
+        let template = bools.render_string();
         assert_eq!(template, "truefalse");
 
-        let parsed = ConsecutiveBools::from_string(&template).unwrap();
+        let parsed = ConsecutiveBools::from_str(&template).unwrap();
         assert_eq!(parsed, bools);
     }
 
@@ -773,10 +773,10 @@ mod consecutive_placeholder_tests {
             flag: true,
         };
 
-        let template = mixed.to_string();
+        let template = mixed.render_string();
         assert_eq!(template, "Xtrue");
 
-        let parsed = MixedCharBool::from_string(&template).unwrap();
+        let parsed = MixedCharBool::from_str(&template).unwrap();
         assert_eq!(parsed, mixed);
     }
 
@@ -794,10 +794,10 @@ mod consecutive_placeholder_tests {
             grade: 'A',
         };
 
-        let template = bc.to_string();
+        let template = bc.render_string();
         assert_eq!(template, "falseA");
 
-        let parsed = BoolChar::from_string(&template).unwrap();
+        let parsed = BoolChar::from_str(&template).unwrap();
         assert_eq!(parsed, bc);
     }
 
@@ -819,10 +819,10 @@ mod consecutive_placeholder_tests {
             d: 'T',
         };
 
-        let template = multi.to_string();
+        let template = multi.render_string();
         assert_eq!(template, "TEST");
 
-        let parsed = MultipleChars::from_string(&template).unwrap();
+        let parsed = MultipleChars::from_str(&template).unwrap();
         assert_eq!(parsed, multi);
     }
 
@@ -842,10 +842,10 @@ mod consecutive_placeholder_tests {
             c: true,
         };
 
-        let template = multi.to_string();
+        let template = multi.render_string();
         assert_eq!(template, "truefalsetrue");
 
-        let parsed = MultipleBools::from_string(&template).unwrap();
+        let parsed = MultipleBools::from_str(&template).unwrap();
         assert_eq!(parsed, multi);
     }
 
@@ -863,10 +863,10 @@ mod consecutive_placeholder_tests {
             second: 'Z',
         };
 
-        let template = sep.to_string();
+        let template = sep.render_string();
         assert_eq!(template, "A-Z");
 
-        let parsed = SeparatedChars::from_string(&template).unwrap();
+        let parsed = SeparatedChars::from_str(&template).unwrap();
         assert_eq!(parsed, sep);
     }
 
@@ -884,10 +884,10 @@ mod consecutive_placeholder_tests {
             disabled: false,
         };
 
-        let template = sep.to_string();
+        let template = sep.render_string();
         assert_eq!(template, "true|false");
 
-        let parsed = SeparatedBools::from_string(&template).unwrap();
+        let parsed = SeparatedBools::from_str(&template).unwrap();
         assert_eq!(parsed, sep);
     }
 }
@@ -908,10 +908,10 @@ mod escaped_brace_tests {
             value: "test".into(),
         };
 
-        let template = escaped.to_string();
+        let template = escaped.render_string();
         assert_eq!(template, "{value=test");
 
-        let parsed = EscapedOpen::from_string(&template).unwrap();
+        let parsed = EscapedOpen::from_str(&template).unwrap();
         assert_eq!(parsed, escaped);
     }
 
@@ -927,10 +927,10 @@ mod escaped_brace_tests {
             value: "test".into(),
         };
 
-        let template = escaped.to_string();
+        let template = escaped.render_string();
         assert_eq!(template, "value=test}");
 
-        let parsed = EscapedClose::from_string(&template).unwrap();
+        let parsed = EscapedClose::from_str(&template).unwrap();
         assert_eq!(parsed, escaped);
     }
 
@@ -946,10 +946,10 @@ mod escaped_brace_tests {
             value: "test".into(),
         };
 
-        let template = escaped.to_string();
+        let template = escaped.render_string();
         assert_eq!(template, "{data: test}");
 
-        let parsed = BothEscaped::from_string(&template).unwrap();
+        let parsed = BothEscaped::from_str(&template).unwrap();
         assert_eq!(parsed, escaped);
     }
 
@@ -965,10 +965,10 @@ mod escaped_brace_tests {
             value: "data".into(),
         };
 
-        let template = escaped.to_string();
+        let template = escaped.render_string();
         assert_eq!(template, "{{prefix}}: data");
 
-        let parsed = MultipleEscaped::from_string(&template).unwrap();
+        let parsed = MultipleEscaped::from_str(&template).unwrap();
         assert_eq!(parsed, escaped);
     }
 }
@@ -992,12 +992,12 @@ mod missing_field_tests {
             port: 8080,
         };
 
-        // to_string only includes template fields
-        let template = config.to_string();
+        // render_string only includes template fields
+        let template = config.render_string();
         assert_eq!(template, "name=server");
 
-        // from_string sets missing field to default
-        let parsed = PartialConfig::from_string(&template).unwrap();
+        // from_str sets missing field to default
+        let parsed = PartialConfig::from_str(&template).unwrap();
         assert_eq!(parsed.name, "server");
         assert_eq!(parsed.port, 0); // Default for u16
     }
@@ -1020,10 +1020,10 @@ mod missing_field_tests {
             count: -5,
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "id=42");
 
-        let parsed = MultiMissing::from_string(&template).unwrap();
+        let parsed = MultiMissing::from_str(&template).unwrap();
         assert_eq!(parsed.id, 42);
         assert_eq!(parsed.name, ""); // Default for String
         assert_eq!(parsed.enabled, false); // Default for bool
@@ -1048,10 +1048,10 @@ mod missing_field_tests {
             port: 443,
         };
 
-        let template = creds.to_string();
+        let template = creds.render_string();
         assert_eq!(template, "user=admin:pass=secret");
 
-        let parsed = Credentials::from_string(&template).unwrap();
+        let parsed = Credentials::from_str(&template).unwrap();
         assert_eq!(parsed.user, "admin");
         assert_eq!(parsed.pass, "secret");
         assert_eq!(parsed.domain, ""); // Default
@@ -1080,10 +1080,10 @@ mod missing_field_tests {
             character: 'X',
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "active=true");
 
-        let parsed = AllTypes::from_string(&template).unwrap();
+        let parsed = AllTypes::from_str(&template).unwrap();
         assert_eq!(parsed.active, true);
         assert_eq!(parsed.text, "");
         assert_eq!(parsed.number, 0);
@@ -1109,8 +1109,8 @@ mod missing_field_tests {
             level: 5,
         };
 
-        let template1 = original.to_string();
-        let parsed1 = StatusReport::from_string(&template1).unwrap();
+        let template1 = original.render_string();
+        let parsed1 = StatusReport::from_str(&template1).unwrap();
         
         // Missing fields get defaults
         assert_eq!(parsed1.status, "ok");
@@ -1118,10 +1118,10 @@ mod missing_field_tests {
         assert_eq!(parsed1.level, 0);
 
         // Second roundtrip - template stays the same
-        let template2 = parsed1.to_string();
+        let template2 = parsed1.render_string();
         assert_eq!(template1, template2);
         
-        let parsed2 = StatusReport::from_string(&template2).unwrap();
+        let parsed2 = StatusReport::from_str(&template2).unwrap();
         assert_eq!(parsed2, parsed1);
     }
 
@@ -1139,10 +1139,10 @@ mod missing_field_tests {
             extra: "not_in_template".into(),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "A-A-A");
 
-        let parsed = DuplicateWithMissing::from_string(&template).unwrap();
+        let parsed = DuplicateWithMissing::from_str(&template).unwrap();
         assert_eq!(parsed.id, 'A');
         assert_eq!(parsed.extra, ""); // Default
     }
@@ -1161,10 +1161,10 @@ mod missing_field_tests {
             field2: 100,
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "constant_text");
 
-        let parsed = NoPlaceholders::from_string(&template).unwrap();
+        let parsed = NoPlaceholders::from_str(&template).unwrap();
         assert_eq!(parsed.field1, "");
         assert_eq!(parsed.field2, 0);
     }
@@ -1189,10 +1189,10 @@ mod missing_field_tests {
             address: "123 Main St".into(),
         };
 
-        let template = person.to_string();
+        let template = person.render_string();
         assert_eq!(template, "Name: Alice, Age: 30");
 
-        let parsed = Person::from_string(&template).unwrap();
+        let parsed = Person::from_str(&template).unwrap();
         assert_eq!(parsed.name, "Alice");
         assert_eq!(parsed.age, 30);
         assert_eq!(parsed.email, "");
@@ -1218,10 +1218,10 @@ mod missing_field_tests {
             extra2: 999,
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "trueX");
 
-        let parsed = ConsecutiveWithMissing::from_string(&template).unwrap();
+        let parsed = ConsecutiveWithMissing::from_str(&template).unwrap();
         assert_eq!(parsed.flag, true);
         assert_eq!(parsed.ch, 'X');
         assert_eq!(parsed.extra1, "");
@@ -1244,10 +1244,10 @@ mod missing_field_tests {
             third: "three".into(),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "one");
 
-        let parsed = FirstOnly::from_string(&template).unwrap();
+        let parsed = FirstOnly::from_str(&template).unwrap();
         assert_eq!(parsed.first, "one");
         assert_eq!(parsed.second, "");
         assert_eq!(parsed.third, "");
@@ -1269,10 +1269,10 @@ mod missing_field_tests {
             last: "final".into(),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "result=final");
 
-        let parsed = LastOnly::from_string(&template).unwrap();
+        let parsed = LastOnly::from_str(&template).unwrap();
         assert_eq!(parsed.first, 0);
         assert_eq!(parsed.second, false);
         assert_eq!(parsed.last, "final");
@@ -1296,10 +1296,10 @@ mod missing_field_tests {
             d: "D".into(),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "A:C");
 
-        let parsed = Alternating::from_string(&template).unwrap();
+        let parsed = Alternating::from_str(&template).unwrap();
         assert_eq!(parsed.a, "A");
         assert_eq!(parsed.b, ""); // Missing
         assert_eq!(parsed.c, "C");

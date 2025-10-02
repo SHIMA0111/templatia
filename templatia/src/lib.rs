@@ -41,11 +41,11 @@
 //! };
 //!
 //! // Convert to template string (default format: field = {field})
-//! let template = config.to_string();
+//! let template = config.render_string();
 //! assert_eq!(template, "host = localhost\nport = 5432\ndatabase = myapp");
 //!
 //! // Parse back from template string
-//! let parsed = DatabaseConfig::from_string(&template).unwrap();
+//! let parsed = DatabaseConfig::from_str(&template).unwrap();
 //! assert_eq!(parsed.host, "localhost");
 //! assert_eq!(parsed.port, 5432);
 //! ```
@@ -71,9 +71,9 @@
 //!     database: "production".to_string(),
 //! };
 //!
-//! assert_eq!(url.to_string(), "postgresql://db.example.com:5432/production");
+//! assert_eq!(url.render_string(), "postgresql://db.example.com:5432/production");
 //!
-//! let parsed = PostgresUrl::from_string("postgresql://localhost:5432/test").unwrap();
+//! let parsed = PostgresUrl::from_str("postgresql://localhost:5432/test").unwrap();
 //! assert_eq!(parsed.database, "test");
 //! ```
 //!
@@ -92,11 +92,83 @@
 //! }
 //!
 //! let greeting = Greeting { name: "Alice".to_string() };
-//! assert_eq!(greeting.to_string(), "Welcome Alice! Your name is Alice.");
+//! assert_eq!(greeting.render_string(), "Welcome Alice! Your name is Alice.");
 //!
 //! // Parsing with inconsistent values will result in an error
-//! let result = Greeting::from_string("Welcome Alice! Your name is Bob.");
+//! let result = Greeting::from_str("Welcome Alice! Your name is Bob.");
 //! assert!(result.is_err());
+//! ```
+//!
+//! #### Option<T> Support
+//! Fields with `Option<T>` type automatically default to `None` when the placeholder is not in the template:
+//!
+//! ```rust
+//! use templatia::Template;
+//!
+//! #[derive(Template)]
+//! #[templatia(template = "host={host}:{port}", allow_missing_placeholders)]
+//! struct ServerConfig {
+//!     host: String,
+//!     port: u16,
+//!     username: Option<String>,
+//!     password: Option<String>,
+//! }
+//!
+//! let config = ServerConfig::from_str("host=localhost:8080").unwrap();
+//! assert_eq!(config.host, "localhost");
+//! assert_eq!(config.port, 8080);
+//! assert_eq!(config.username, None); // Not in template, defaults to None
+//! assert_eq!(config.password, None); // Not in template, defaults to None
+//! ```
+//!
+//! By default, empty strings in `Option<String>` are parsed as `None`:
+//!
+//! ```rust
+//! use templatia::Template;
+//!
+//! #[derive(Template)]
+//! #[templatia(template = "value={value}")]
+//! struct OptionalValue {
+//!     value: Option<String>,
+//! }
+//!
+//! let parsed = OptionalValue::from_str("value=").unwrap();
+//! assert_eq!(parsed.value, None); // Empty string becomes None
+//! ```
+//!
+//! To treat empty strings as `Some("")`, use the `empty_str_option_not_none` attribute:
+//!
+//! ```rust
+//! use templatia::Template;
+//!
+//! #[derive(Template)]
+//! #[templatia(template = "value={value}", empty_str_option_not_none)]
+//! struct OptionalValue {
+//!     value: Option<String>,
+//! }
+//!
+//! let parsed = OptionalValue::from_str("value=").unwrap();
+//! assert_eq!(parsed.value, Some("".to_string())); // Empty string becomes Some("")
+//! ```
+//!
+//! #### Missing Placeholders
+//! Use `allow_missing_placeholders` to allow fields not in the template:
+//!
+//! ```rust
+//! use templatia::Template;
+//!
+//! #[derive(Template)]
+//! #[templatia(template = "id={id}", allow_missing_placeholders)]
+//! struct Config {
+//!     id: u32,
+//!     name: String,           // Not in template, uses Default::default()
+//!     optional: Option<u32>,  // Not in template, becomes None
+//! }
+//!
+//! let config = Config::from_str("id=42").unwrap();
+//! assert_eq!(config.id, 42);
+//! assert_eq!(config.name, "");          // Default for String
+//! assert_eq!(config.optional, None);     // None for Option<T>
 //! ```
 //!
 //! ### Manual Implementation (Advanced)
@@ -112,13 +184,12 @@
 //!
 //! impl Template for Point {
 //!     type Error = TemplateError;
-//!     type Struct = Point;
 //!
-//!     fn to_string(&self) -> String {
+//!     fn render_string(&self) -> String {
 //!         format!("({}, {})", self.0, self.1)
 //!     }
 //!
-//!     fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
+//!     fn from_str(s: &str) -> Result<Self, Self::Error> {
 //!         if !s.starts_with('(') || !s.ends_with(')') {
 //!             return Err(TemplateError::Parse("Expected format: (x, y)".to_string()));
 //!         }
@@ -140,9 +211,9 @@
 //! }
 //!
 //! let point = Point(10, 20);
-//! assert_eq!(point.to_string(), "(10, 20)");
+//! assert_eq!(point.render_string(), "(10, 20)");
 //!
-//! let parsed = Point::from_string("(5, 15)").unwrap();
+//! let parsed = Point::from_str("(5, 15)").unwrap();
 //! assert_eq!(parsed.0, 5);
 //! assert_eq!(parsed.1, 15);
 //! ```
@@ -151,11 +222,13 @@
 //!
 //! Templatia follows a clear development roadmap with planned features:
 //!
-//! ### 🚧 Version 0.0.2
-//! - Enhanced error handling with warnings for missing fields
-//! - Configurable default behavior for missing data
-//! - `Option<T>` support (defaults to `None` when placeholder absent)
-//! - String field configuration for missing placeholders
+//! ### ✅ Version 0.0.2 (Completed)
+//! - `#[templatia(allow_missing_placeholders)]` attribute: Fields not in template use `Default::default()`
+//! - `Option<T>` support: Automatically defaults to `None` when placeholder is absent
+//! - Empty string handling: By default, empty strings in `Option<String>` are parsed as `None`
+//! - `#[templatia(empty_str_option_not_none)]` attribute: Treats empty strings as `Some("")` instead of `None`
+//! - Removed `type Struct` associated type from `Template` trait (simplified to `Self`)
+//! - Bug fixes for consistent placeholder handling and parsing edge cases
 //!
 //! ### 🔮 Version 0.0.3
 //! - Enriched error diagnostics and coverage
@@ -191,7 +264,7 @@
 //! struct Config { port: u16 }
 //!
 //! // Parse error example
-//! match Config::from_string("port=not_a_number") {
+//! match Config::from_str("port=not_a_number") {
 //!     Err(TemplateError::Parse(msg)) => println!("Parse failed: {}", msg),
 //!     _ => unreachable!(),
 //! }
@@ -201,7 +274,7 @@
 //! #[templatia(template = "id={id}-backup-{id}")]
 //! struct BackupConfig { id: String }
 //!
-//! match BackupConfig::from_string("id=prod-backup-dev") {
+//! match BackupConfig::from_str("id=prod-backup-dev") {
 //!     Err(TemplateError::InconsistentValues { placeholder, first_value, second_value }) => {
 //!         println!("Placeholder '{}' had conflicting values: '{}' vs '{}'",
 //!                  placeholder, first_value, second_value);
@@ -256,14 +329,14 @@ pub use templatia_derive::Template;
 ///
 /// - `Error`: The concrete error type returned by parsing operations. Should implement
 ///   `std::error::Error + std::fmt::Display` for best integration with error handling.
-/// - `Struct`: The concrete struct type produced by `from_string`. This allows the trait
-///   to work with generic implementations while maintaining type safety.
 ///
 /// # Implementation Guidelines
 ///
 /// When manually implementing this trait:
 ///
-/// 1. **Consistency**: Ensure `from_string(x.to_string())` equals `x` for valid data
+/// 1. **Consistency**: Ensure `from_str(x.render_string())` equals `x` for valid data
+///    - In `empty_str_option_not_none` mode, we have the known limitation that
+///      the consistency breaks like `None` is treated as `Some("")`
 /// 2. **Error Handling**: Use descriptive error messages that help users debug issues
 /// 3. **Performance**: Consider caching compiled parsers for repeated use
 /// 4. **Validation**: Validate data integrity, especially with duplicate placeholders
@@ -282,13 +355,12 @@ pub use templatia_derive::Template;
 ///
 /// impl Template for ServerConfig {
 ///     type Error = TemplateError;
-///     type Struct = ServerConfig;
 ///
-///     fn to_string(&self) -> String {
+///     fn render_string(&self) -> String {
 ///         format!("server={},port={}", self.name, self.port)
 ///     }
 ///
-///     fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
+///     fn from_str(s: &str) -> Result<Self, Self::Error> {
 ///         let parts: Vec<&str> = s.split(',').collect();
 ///         if parts.len() != 2 {
 ///             return Err(TemplateError::Parse("Expected format: server=name,port=number".to_string()));
@@ -309,10 +381,10 @@ pub use templatia_derive::Template;
 /// }
 ///
 /// let config = ServerConfig { name: "web01".to_string(), port: 8080 };
-/// let template = config.to_string();
+/// let template = config.render_string();
 /// assert_eq!(template, "server=web01,port=8080");
 ///
-/// let parsed = ServerConfig::from_string(&template).unwrap();
+/// let parsed = ServerConfig::from_str(&template).unwrap();
 /// assert_eq!(parsed.name, "web01");
 /// assert_eq!(parsed.port, 8080);
 /// ```
@@ -335,13 +407,12 @@ pub use templatia_derive::Template;
 ///     T::Err: Display,
 /// {
 ///     type Error = TemplateError;
-///     type Struct = KeyValue<T>;
 ///
-///     fn to_string(&self) -> String {
+///     fn render_string(&self) -> String {
 ///         format!("{}={}", self.key, self.value)
 ///     }
 ///
-///     fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
+///     fn from_str(s: &str) -> Result<Self, Self::Error> {
 ///         let parts: Vec<&str> = s.splitn(2, '=').collect();
 ///         if parts.len() != 2 {
 ///             return Err(TemplateError::Parse("Expected key=value format".to_string()));
@@ -356,12 +427,12 @@ pub use templatia_derive::Template;
 /// }
 ///
 /// let config = KeyValue { key: "timeout".to_string(), value: 30u32 };
-/// assert_eq!(config.to_string(), "timeout=30");
+/// assert_eq!(config.render_string(), "timeout=30");
 ///
-/// let parsed = KeyValue::<u32>::from_string("retry=5").unwrap();
+/// let parsed = KeyValue::<u32>::from_str("retry=5").unwrap();
 /// assert_eq!(parsed.value, 5);
 /// ```
-pub trait Template {
+pub trait Template where Self: Sized {
     /// The concrete error type for template parsing or formatting failures.
     ///
     /// This should typically be `TemplateError` for most implementations, but custom
@@ -369,24 +440,15 @@ pub trait Template {
     /// implement `std::error::Error` for best integration with Rust's error ecosystem.
     type Error;
 
-    /// The concrete struct type created by `from_string`.
-    ///
-    /// This is usually the same as `Self`, but using an associated type allows for
-    /// more flexible implementations, particularly with generic types or when the
-    /// parsing result might differ from the input type.
-    type Struct;
-
     /// Converts the value into its template string representation.
     ///
     /// This method serializes the struct into a string format according to the
-    /// defined template rules. The output should be parseable by `from_string`
+    /// defined template rules. The output should be parseable by `from_str`
     /// to maintain round-trip consistency.
     ///
-    /// # Performance Notes
+    /// # Returns
     ///
-    /// This method creates a new `String` on each call. For performance-critical
-    /// applications with frequent serialization, consider caching results or using
-    /// streaming approaches.
+    /// - String: The fully rendered template output that corresponds to the defined template or manual implemented result.
     ///
     /// # Examples
     ///
@@ -404,17 +466,17 @@ pub trait Template {
     ///     debug: true,
     /// };
     ///
-    /// let template = config.to_string();
+    /// let template = config.render_string();
     /// // Default format: "name = myapp\ndebug = true"
     /// assert!(template.contains("name = myapp"));
     /// assert!(template.contains("debug = true"));
     /// ```
-    fn to_string(&self) -> String;
+    fn render_string(&self) -> String;
 
     /// Parses an instance from a template string.
     ///
     /// This method deserializes a string into the target struct type according to
-    /// the defined template rules. It should be the inverse operation of `to_string`.
+    /// the defined template rules. It should be the inverse operation of `render_string`.
     ///
     /// # Parameters
     ///
@@ -422,7 +484,7 @@ pub trait Template {
     ///
     /// # Returns
     ///
-    /// On success, returns a constructed instance of `Self::Struct`. The result
+    /// On success, returns a constructed instance of `Self`. The result
     /// should be equivalent to the original struct that generated the string.
     ///
     /// # Errors
@@ -446,19 +508,19 @@ pub trait Template {
     /// }
     ///
     /// // Successful parsing
-    /// let conn = Connection::from_string("host=localhost:8080").unwrap();
+    /// let conn = Connection::from_str("host=localhost:8080").unwrap();
     /// assert_eq!(conn.host, "localhost");
     /// assert_eq!(conn.port, 8080);
     ///
     /// // Error handling
-    /// match Connection::from_string("host=localhost:invalid_port") {
+    /// match Connection::from_str("host=localhost:invalid_port") {
     ///     Err(TemplateError::Parse(msg)) => {
     ///         println!("Parsing failed: {}", msg);
     ///     }
     ///     _ => panic!("Expected parse error"),
     /// }
     /// ```
-    fn from_string(s: &str) -> Result<Self::Struct, Self::Error>;
+    fn from_str(s: &str) -> Result<Self, Self::Error>;
 }
 
 /// Errors produced by templatia operations.
