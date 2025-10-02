@@ -220,8 +220,8 @@ pub(crate) fn generate_str_parser(
                 quote! {
                     #base
                         .as_ref()
-                        .map(|v| v.as_ref())
-                        .unwrap_or("")
+                        .map(|v| v.to_string())
+                        .unwrap_or_default()
                 }
             } else {
                 quote! { #base }
@@ -235,8 +235,8 @@ pub(crate) fn generate_str_parser(
                 quote! {
                     #dup
                         .as_ref()
-                        .map(|v| v.as_ref())
-                        .unwrap_or("")
+                        .map(|v| v.to_string())
+                        .unwrap_or_default()
                 }
             } else {
                 quote! { #dup }
