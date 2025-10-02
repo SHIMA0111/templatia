@@ -4,8 +4,8 @@ description = "A template library writedown and load the struct"
 version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
-keywords = ["parser", "template"]
-categories = ["parsing", "template-engine"]
+keywords = ["parser", "template", "serialize", "deserialize"]
+categories = ["parsing", "text-processing", "parser-implementations"]
 edition = "2024"
 rust-version = "1.85.0"
 readme = { workspace = true }
