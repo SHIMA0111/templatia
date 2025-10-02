@@ -446,11 +446,9 @@ pub trait Template where Self: Sized {
     /// defined template rules. The output should be parseable by `from_str`
     /// to maintain round-trip consistency.
     ///
-    /// # Performance Notes
+    /// # Returns
     ///
-    /// This method creates a new `String` on each call. For performance-critical
-    /// applications with frequent serialization, consider caching results or using
-    /// streaming approaches.
+    /// - String: The fully rendered template output that corresponds to the defined template or manual implemented result.
     ///
     /// # Examples
     ///
