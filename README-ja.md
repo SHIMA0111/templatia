@@ -51,7 +51,7 @@ struct Config {
 
 fn main() {
     let cfg = Config { host: "localhost".into(), port: 5432 };
-    let s = cfg.to_string();
+    let s = cfg.render_string();
     assert!(s.contains("host = localhost"));
     assert!(s.contains("port = 5432"));
 }
@@ -77,7 +77,7 @@ fn main() {
 data1 = {data1}
 data2 = {data2}
 ```
-という形式でテンプレートが生成され、to_string()を実行した場合には
+という形式でテンプレートが生成され、render_string()を実行した場合には
 ```text
 data1 = data1
 data2 = 100
@@ -99,9 +99,9 @@ struct DbCfg {
 
 fn main() {
     let cfg = DbCfg { host: "db.example.com".into(), port: 3306 };
-    assert_eq!(cfg.to_string(), "db.example.com:3306");
+    assert_eq!(cfg.render_string(), "db.example.com:3306");
 
-    let parsed = DbCfg::from_string("db.example.com:3306").unwrap();
+    let parsed = DbCfg::from_str("db.example.com:3306").unwrap();
     assert_eq!(parsed.host, "db.example.com");
     assert_eq!(parsed.port, 3306);
 }
@@ -123,7 +123,7 @@ struct ServerConfig {
 }
 
 fn main() {
-    let config = ServerConfig::from_string("host=localhost:8080").unwrap();
+    let config = ServerConfig::from_str("host=localhost:8080").unwrap();
     assert_eq!(config.host, "localhost");
     assert_eq!(config.port, 8080);
     assert_eq!(config.username, None); // テンプレートにないため、Noneになる
@@ -143,7 +143,7 @@ struct OptionalValue {
 }
 
 fn main() {
-    let parsed = OptionalValue::from_string("value=").unwrap();
+    let parsed = OptionalValue::from_str("value=").unwrap();
     assert_eq!(parsed.value, Some("".to_string())); // 空文字列がSome("")になる
 }
 ```
@@ -163,7 +163,7 @@ struct Config {
 }
 
 fn main() {
-    let config = Config::from_string("id=42").unwrap();
+    let config = Config::from_str("id=42").unwrap();
     assert_eq!(config.id, 42);
     assert_eq!(config.name, "");          // Stringのデフォルト値
     assert_eq!(config.optional, None);     // Option<T>はNone
@@ -174,7 +174,7 @@ fn main() {
 - テンプレート内の `{name}` は、該当する名前付きフィールドと一致している必要があります
 - テンプレートで使用されるフィールド型は Display と FromStr を実装している必要があります
   - `allow_missing_placeholders`を有効にしている場合にはDefaultの実装も必要になります。
-- 同じフィールドのプレースホルダーを複数回テンプレート内で利用することが可能ですが、from_string()時には同じフィールドのプレースホルダーは同じ値である必要があります。
+- 同じフィールドのプレースホルダーを複数回テンプレート内で利用することが可能ですが、from_str()時には同じフィールドのプレースホルダーは同じ値である必要があります。
   - `"{first_name} (Full: {first_name} {family_name})"`となっていた場合に`Taro (Full: Jiro Yamada)`を構造体にデシリアライズすることはできません。
 
 ## 実行時エラー
@@ -189,7 +189,7 @@ templatia は解析や検証に関するシンプルなエラー型を提供し�
 - templatia
   - Template トレイト
     - `templatia`の振る舞いを定義したトレイトです。  
-      `to_string()`と`from_string()`という二つのメソッドと一つの関連型`Error`を定義しています。
+      `render_string()`と`from_str()`という二つのメソッドと一つの関連型`Error`を定義しています。
   - TemplateError
     - templatia-deriveのデフォルトのエラーです。
 - templatia-derive

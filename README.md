@@ -51,7 +51,7 @@ struct Config {
 
 fn main() {
     let cfg = Config { host: "localhost".into(), port: 5432 };
-    let s = cfg.to_string();
+    let s = cfg.render_string();
     assert!(s.contains("host = localhost"));
     assert!(s.contains("port = 5432"));
 }
@@ -78,7 +78,7 @@ In this case, the template is generated in the format:
 data1 = {data1}
 data2 = {data2}
 ```
-When executing to_string(), you get the output:
+When executing render_string(), you get the output:
 ```text
 data1 = data1
 data2 = 100
@@ -100,9 +100,9 @@ struct DbCfg {
 
 fn main() {
     let cfg = DbCfg { host: "db.example.com".into(), port: 3306 };
-    assert_eq!(cfg.to_string(), "db.example.com:3306");
+    assert_eq!(cfg.render_string(), "db.example.com:3306");
 
-    let parsed = DbCfg::from_string("db.example.com:3306").unwrap();
+    let parsed = DbCfg::from_str("db.example.com:3306").unwrap();
     assert_eq!(parsed.host, "db.example.com");
     assert_eq!(parsed.port, 3306);
 }
@@ -124,7 +124,7 @@ struct ServerConfig {
 }
 
 fn main() {
-    let config = ServerConfig::from_string("host=localhost:8080").unwrap();
+    let config = ServerConfig::from_str("host=localhost:8080").unwrap();
     assert_eq!(config.host, "localhost");
     assert_eq!(config.port, 8080);
     assert_eq!(config.username, None); // Not in template, defaults to None
@@ -144,7 +144,7 @@ struct OptionalValue {
 }
 
 fn main() {
-    let parsed = OptionalValue::from_string("value=").unwrap();
+    let parsed = OptionalValue::from_str("value=").unwrap();
     assert_eq!(parsed.value, Some("".to_string())); // Empty string becomes Some("")
 }
 ```
@@ -164,7 +164,7 @@ struct Config {
 }
 
 fn main() {
-    let config = Config::from_string("id=42").unwrap();
+    let config = Config::from_str("id=42").unwrap();
     assert_eq!(config.id, 42);
     assert_eq!(config.name, "");          // Default for String
     assert_eq!(config.optional, None);     // None for Option<T>
@@ -175,7 +175,7 @@ fn main() {
 - Each `{name}` in the template must correspond to a named struct field
 - Field types used in the template must implement Display and FromStr
   - When `allow_missing_placeholders` is enabled, the Default trait implementation is also required.
-- It is possible to use placeholders for the same field multiple times within the template, but during from_string() the placeholders for the same field must have the same value.
+- It is possible to use placeholders for the same field multiple times within the template, but during from_str() the placeholders for the same field must have the same value.
   - For example, if the template is `"{first_name} (Full: {first_name} {family_name})"`, you cannot deserialize `Taro (Full: Jiro Yamada)` into the struct.
 
 ## Runtime Errors
@@ -190,7 +190,7 @@ templatia defines a simple error type for parsing and validation:
 - templatia
   - Template trait
     - A trait that defines the behavior of `templatia`.
-      It defines two methods: `to_string()` and `from_string()`, and one associated type: `Error`.
+      It defines two methods: `render_string()` and `from_str()`, and one associated type: `Error`.
   - TemplateError enum for error reporting
 - templatia-derive
   - #[derive(Template)] macro for named structs
