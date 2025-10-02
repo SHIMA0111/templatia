@@ -32,12 +32,13 @@ mod utils;
 
 use crate::generator::generate_str_parser;
 use crate::parser::{TemplateSegments, parse_template};
-use darling::FromDeriveInput;
-use darling::util::Override;
+use darling::{FromDeriveInput};
+use darling::util::{Flag, Override};
 use proc_macro::TokenStream;
 use quote::quote;
 use std::collections::HashSet;
 use syn::{DeriveInput, parse_macro_input};
+use crate::utils::get_inner_type_from_option;
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(templatia), supports(struct_named))]
@@ -49,6 +50,10 @@ struct TemplateOpts {
     /// Optional template string provided via `#[templatia(template = "...")]`.
     #[darling(default)]
     template: Override<String>,
+    #[darling(default)]
+    allow_missing_placeholders: Flag,
+    #[darling(default)]
+    empty_str_option_not_none: Flag,
 }
 
 /// Derive macro for implementing `templatia::Template` trait on named structs.
@@ -59,8 +64,8 @@ struct TemplateOpts {
 /// # Type Requirements
 ///
 /// All fields referenced in the template must implement:
-/// - `std::fmt::Display` for serialization (`to_string`)
-/// - `std::str::FromStr` for deserialization (`from_string`)
+/// - `std::fmt::Display` for serialization (`render_string`)
+/// - `std::str::FromStr` for deserialization (`from_str`)
 /// - `std::cmp::PartialEq` for consistency validation with duplicate placeholders
 ///
 /// # Compilation Errors
@@ -102,6 +107,22 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         }
     };
 
+    let allow_missing_placeholders = opts.allow_missing_placeholders.is_present();
+    let empty_some_str_as_is = opts.empty_str_option_not_none.is_present();
+
+    let all_fields = if let darling::ast::Data::Struct(data_struct) = &opts.data {
+        &data_struct.fields
+    } else {
+        // Currently, this crates supports only named struct so this branch is unreachable.
+        unreachable!()
+    };
+
+    let optional_fields = all_fields
+        .iter()
+        .filter(|f| get_inner_type_from_option(&f.ty).is_some())
+        .filter_map(|f| f.ident.as_ref())
+        .collect::<HashSet<_>>();
+
     let segments = match parse_template(&template) {
         Ok(segments) => segments,
         Err(e) => {
@@ -125,18 +146,16 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
     // Generate code for placeholder completion the format_string it used the self keys
     let format_args = segments.iter().filter_map(|segment| match segment {
         TemplateSegments::Placeholder(name) => {
-            let field_ident = syn::Ident::new(name, proc_macro2::Span::call_site());
-            Some(quote! { &self.#field_ident })
+            let field_ident =  syn::Ident::new(name, proc_macro2::Span::call_site());
+
+            if optional_fields.contains(&field_ident) {
+                Some(quote! { &self.#field_ident.as_ref().map(|v| v.to_string()).unwrap_or("".to_string()) })
+            } else {
+                Some(quote! { &self.#field_ident })
+            }
         }
         TemplateSegments::Literal(_) => None,
     });
-
-    let all_fields = if let darling::ast::Data::Struct(data_struct) = &opts.data {
-        &data_struct.fields
-    } else {
-        // Currently, this crates supports only named struct so this branch is unreachable.
-        unreachable!()
-    };
 
     // Gathering the all placeholder name without duplication
     let placeholder_names = segments
@@ -149,7 +168,14 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
             }
         })
         .collect::<HashSet<_>>();
-    let str_from_parser = generate_str_parser(name, all_fields, &placeholder_names, &segments);
+    let str_from_parser = generate_str_parser(
+        name,
+        all_fields,
+        &placeholder_names,
+        &segments,
+        allow_missing_placeholders,
+        !empty_some_str_as_is,
+    );
 
     // Generate trait bound
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
@@ -168,18 +194,35 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
     let mut new_where_clause = where_clause
         .cloned()
         .unwrap_or_else(|| syn::parse_quote! { where });
+
     for field in used_fields {
         let field_ty = &field.ty;
         if !new_where_clause.predicates.is_empty() {
             // push_punct adds a comma between predicates.
             new_where_clause.predicates.push_punct(Default::default());
         }
-        new_where_clause.predicates.push(syn::parse_quote! {
-            #field_ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq
-        });
-        new_where_clause.predicates.push(syn::parse_quote! {
-            <#field_ty as ::std::str::FromStr>::Err: ::std::fmt::Display
-        })
+
+        if let Some(inner_type) = get_inner_type_from_option(field_ty) {
+            new_where_clause.predicates.push(syn::parse_quote! {
+                #inner_type: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq
+            });
+            new_where_clause.predicates.push(syn::parse_quote! {
+                <#inner_type as ::std::str::FromStr>::Err: ::std::fmt::Display
+            });
+        } else {
+            if !allow_missing_placeholders {
+                new_where_clause.predicates.push(syn::parse_quote! {
+                    #field_ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq
+                });
+            } else {
+                new_where_clause.predicates.push(syn::parse_quote! {
+                    #field_ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq + ::std::default::Default
+                });
+            }
+            new_where_clause.predicates.push(syn::parse_quote! {
+                <#field_ty as ::std::str::FromStr>::Err: ::std::fmt::Display
+            });
+        }
     }
 
     let where_clause = if new_where_clause.predicates.is_empty() {
@@ -191,13 +234,12 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
     quote! {
         impl #impl_generics ::templatia::Template for #name #ty_generics #where_clause {
             type Error = templatia::TemplateError;
-            type Struct = #name #ty_generics;
 
-            fn to_string(&self) -> String {
+            fn render_string(&self) -> String {
                 format!(#format_string, #(#format_args),*)
             }
 
-            fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
+            fn from_str(s: &str) -> Result<Self, Self::Error> {
                 use ::templatia::__private::chumsky::Parser;
 
                 let parser = #str_from_parser;

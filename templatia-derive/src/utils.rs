@@ -34,3 +34,29 @@ pub(crate) fn get_type_name(ty: &syn::Type) -> String {
         _ => "unknown_type".to_string(),
     }
 }
+
+// Extracts the inner type from Option<T> to Option<&syn::Type = T>
+pub(crate) fn get_inner_type_from_option(ty: &syn::Type) -> Option<&syn::Type> {
+    // The type needs to be a Type::Path variant
+    if let syn::Type::Path(type_path) = ty {
+        // Getting the last segment of the path
+        // This is robust for such as std::option::Option which has multiple segments
+        if let Some(last_segment) = type_path.path.segments.last() {
+            // Checking if the last segment is Option
+            if last_segment.ident == "Option" {
+                // Checking if the Option has a generic argument.
+                // The AngleBracketed indicates `<...>` part of Option<T>
+                if let syn::PathArguments::AngleBracketed(args) = &last_segment.arguments {
+                    // Validating that the Option has only one generic argument
+                    if args.args.len() == 1 {
+                        // Validating that the generic argument is a type, and extracting it
+                        if let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() {
+                            return Some(inner_type);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
