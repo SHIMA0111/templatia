@@ -64,8 +64,8 @@ struct TemplateOpts {
 /// # Type Requirements
 ///
 /// All fields referenced in the template must implement:
-/// - `std::fmt::Display` for serialization (`to_string`)
-/// - `std::str::FromStr` for deserialization (`from_string`)
+/// - `std::fmt::Display` for serialization (`render_string`)
+/// - `std::str::FromStr` for deserialization (`from_str`)
 /// - `std::cmp::PartialEq` for consistency validation with duplicate placeholders
 ///
 /// # Compilation Errors

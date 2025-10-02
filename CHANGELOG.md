@@ -23,8 +23,7 @@ All notable changes to this project will be documented in this file.
   - All manual implementations must update their signatures accordingly.
   - The derive macro has been updated to generate the new signature.
 - Template method name change: `from_string` -> `from_str` and `to_string` -> `render_string`.
-  - All manual implementations must update their signatures accordingly.`
-  - The derive macro has been updated to generate the new signature.
+  - The derive macro has been updated to generate the new method names.
 
 ## [0.0.1] - 2025-09-29
 - Initial release

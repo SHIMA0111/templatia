@@ -334,7 +334,9 @@ pub use templatia_derive::Template;
 ///
 /// When manually implementing this trait:
 ///
-/// 1. **Consistency**: Ensure `from_str(x.to_string())` equals `x` for valid data
+/// 1. **Consistency**: Ensure `from_str(x.render_string())` equals `x` for valid data
+///    - In `empty_str_option_not_none` mode, we have the known limitation that
+///      the consistency breaks like `None` is treated as `Some("")`
 /// 2. **Error Handling**: Use descriptive error messages that help users debug issues
 /// 3. **Performance**: Consider caching compiled parsers for repeated use
 /// 4. **Validation**: Validate data integrity, especially with duplicate placeholders
