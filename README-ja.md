@@ -107,6 +107,69 @@ fn main() {
 }
 ```
 
+### Option<T>のサポート
+`Option<T>` 型のフィールドは、プレースホルダがテンプレートに存在しない場合、自動的に `None` になります:
+
+```rust
+use templatia::Template;
+
+#[derive(Template)]
+#[templatia(template = "host={host}:{port}", allow_missing_placeholders)]
+struct ServerConfig {
+    host: String,
+    port: u16,
+    username: Option<String>,
+    password: Option<String>,
+}
+
+fn main() {
+    let config = ServerConfig::from_string("host=localhost:8080").unwrap();
+    assert_eq!(config.host, "localhost");
+    assert_eq!(config.port, 8080);
+    assert_eq!(config.username, None); // テンプレートにないため、Noneになる
+    assert_eq!(config.password, None); // テンプレートにないため、Noneになる
+}
+```
+
+デフォルトでは、`Option<String>` の空文字列は `None` としてパースされます。空文字列を `Some("")` として扱うには、`empty_str_option_not_none` 属性を使用します:
+
+```rust
+use templatia::Template;
+
+#[derive(Template)]
+#[templatia(template = "value={value}", empty_str_option_not_none)]
+struct OptionalValue {
+    value: Option<String>,
+}
+
+fn main() {
+    let parsed = OptionalValue::from_string("value=").unwrap();
+    assert_eq!(parsed.value, Some("".to_string())); // 空文字列がSome("")になる
+}
+```
+
+### プレースホルダの欠損を許可
+`allow_missing_placeholders` 属性を使用すると、テンプレートに含まれないフィールドを許可できます:
+
+```rust
+use templatia::Template;
+
+#[derive(Template)]
+#[templatia(template = "id={id}", allow_missing_placeholders)]
+struct Config {
+    id: u32,
+    name: String,           // テンプレートにないため、Default::default()を使用
+    optional: Option<u32>,  // テンプレートにないため、Noneになる
+}
+
+fn main() {
+    let config = Config::from_string("id=42").unwrap();
+    assert_eq!(config.id, 42);
+    assert_eq!(config.name, "");          // Stringのデフォルト値
+    assert_eq!(config.optional, None);     // Option<T>はNone
+}
+```
+
 ### プレースホルダと型
 - テンプレート内の `{name}` は、該当する名前付きフィールドと一致している必要があります
 - テンプレートで使用されるフィールド型は Display と FromStr を実装している必要があります
@@ -126,12 +189,15 @@ templatia は解析や検証に関するシンプルなエラー型を提供し�
 - templatia
   - Template トレイト
     - `templatia`の振る舞いを定義したトレイトです。  
-      `to_string()`と`from_string()`という二つのメソッドと関連型の`Error`を定義しています。
+      `to_string()`と`from_string()`という二つのメソッドと一つの関連型`Error`を定義しています。
   - TemplateError
     - templatia-deriveのデフォルトのエラーです。
 - templatia-derive
   - #[derive(Template)] マクロ
-  - オプション属性: `#[templatia(template = "...")]`
+  - オプション属性:
+    - `#[templatia(template = "...")]` カスタムテンプレート用
+    - `#[templatia(allow_missing_placeholders)]` テンプレートにないフィールドを許可
+    - `#[templatia(empty_str_option_not_none)]` `Option<String>`の空文字列を`Some("")`として扱う
 
 ## フィーチャフラグ
 - derive
@@ -141,7 +207,7 @@ templatia は解析や検証に関するシンプルなエラー型を提供し�
 - 0.0.2
   - [x] 欠損データのデフォルト挙動を定義: `#[templatia(allow_missing_placeholders)]` 属性により、テンプレートに含まれないフィールドを `Default::default()` で初期化可能
   - [x] Option<T>: プレースホルダが無い場合は既定で None（`allow_missing_placeholders` 不要で自動対応）
-  - [ ] `Template`構造体から関連型の`type Struct`を削除
+  - [x] `Template`構造体から関連型の`type Struct`を削除
 - 0.0.3
   - [ ] エラーハンドリングと警告の充実化（診断の明確化とカバレッジ拡大）
 - 0.0.4

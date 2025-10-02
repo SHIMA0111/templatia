@@ -10,13 +10,12 @@ mod manual_implementation_tests {
 
     impl Template for Point {
         type Error = TemplateError;
-        type Struct = Point;
 
-        fn to_string(&self) -> String {
+        fn render_string(&self) -> String {
             format!("({}, {})", self.0, self.1)
         }
 
-        fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
+        fn from_str(s: &str) -> Result<Self, Self::Error> {
             if !s.starts_with('(') || !s.ends_with(')') {
                 return Err(TemplateError::Parse("Expected format: (x, y)".to_string()));
             }
@@ -40,9 +39,9 @@ mod manual_implementation_tests {
     #[test]
     fn point_tuple_struct_implementation() {
         let point = Point(10, 20);
-        assert_eq!(point.to_string(), "(10, 20)");
+        assert_eq!(point.render_string(), "(10, 20)");
 
-        let parsed = Point::from_string("(5, 15)").unwrap();
+        let parsed = Point::from_str("(5, 15)").unwrap();
         assert_eq!(parsed.0, 5);
         assert_eq!(parsed.1, 15);
     }
@@ -50,8 +49,8 @@ mod manual_implementation_tests {
     #[test]
     fn point_tuple_struct_roundtrip() {
         let original = Point(-100, 200);
-        let template = original.to_string();
-        let parsed = Point::from_string(&template).unwrap();
+        let template = original.render_string();
+        let parsed = Point::from_str(&template).unwrap();
         assert_eq!(parsed.0, original.0);
         assert_eq!(parsed.1, original.1);
     }
@@ -59,15 +58,15 @@ mod manual_implementation_tests {
     #[test]
     fn point_tuple_struct_parse_errors() {
         // Missing parentheses
-        let result = Point::from_string("10, 20");
+        let result = Point::from_str("10, 20");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
 
         // Wrong number of values
-        let result = Point::from_string("(10, 20, 30)");
+        let result = Point::from_str("(10, 20, 30)");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
 
         // Invalid numbers
-        let result = Point::from_string("(abc, 20)");
+        let result = Point::from_str("(abc, 20)");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
     }
 
@@ -79,13 +78,12 @@ mod manual_implementation_tests {
 
     impl Template for ServerConfig {
         type Error = TemplateError;
-        type Struct = ServerConfig;
 
-        fn to_string(&self) -> String {
+        fn render_string(&self) -> String {
             format!("server={},port={}", self.name, self.port)
         }
 
-        fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
+        fn from_str(s: &str) -> Result<Self, Self::Error> {
             let parts: Vec<&str> = s.split(',').collect();
             if parts.len() != 2 {
                 return Err(TemplateError::Parse("Expected format: server=name,port=number".to_string()));
@@ -108,10 +106,10 @@ mod manual_implementation_tests {
     #[test]
     fn server_config_manual_implementation() {
         let config = ServerConfig { name: "web01".to_string(), port: 8080 };
-        let template = config.to_string();
+        let template = config.render_string();
         assert_eq!(template, "server=web01,port=8080");
 
-        let parsed = ServerConfig::from_string(&template).unwrap();
+        let parsed = ServerConfig::from_str(&template).unwrap();
         assert_eq!(parsed.name, "web01");
         assert_eq!(parsed.port, 8080);
     }
@@ -119,19 +117,19 @@ mod manual_implementation_tests {
     #[test]
     fn server_config_parse_errors() {
         // Wrong format
-        let result = ServerConfig::from_string("web01:8080");
+        let result = ServerConfig::from_str("web01:8080");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
 
         // Missing server= prefix
-        let result = ServerConfig::from_string("web01,port=8080");
+        let result = ServerConfig::from_str("web01,port=8080");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
 
         // Missing port= prefix
-        let result = ServerConfig::from_string("server=web01,8080");
+        let result = ServerConfig::from_str("server=web01,8080");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
 
         // Invalid port
-        let result = ServerConfig::from_string("server=web01,port=abc");
+        let result = ServerConfig::from_str("server=web01,port=abc");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
     }
 
@@ -147,13 +145,12 @@ mod manual_implementation_tests {
         T::Err: std::fmt::Display,
     {
         type Error = TemplateError;
-        type Struct = KeyValue<T>;
 
-        fn to_string(&self) -> String {
+        fn render_string(&self) -> String {
             format!("{}={}", self.key, self.value)
         }
 
-        fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
+        fn from_str(s: &str) -> Result<Self, Self::Error> {
             let parts: Vec<&str> = s.splitn(2, '=').collect();
             if parts.len() != 2 {
                 return Err(TemplateError::Parse("Expected key=value format".to_string()));
@@ -170,9 +167,9 @@ mod manual_implementation_tests {
     #[test]
     fn generic_key_value_string() {
         let config = KeyValue { key: "name".to_string(), value: "test".to_string() };
-        assert_eq!(config.to_string(), "name=test");
+        assert_eq!(config.render_string(), "name=test");
 
-        let parsed = KeyValue::<String>::from_string("title=hello world").unwrap();
+        let parsed = KeyValue::<String>::from_str("title=hello world").unwrap();
         assert_eq!(parsed.key, "title");
         assert_eq!(parsed.value, "hello world");
     }
@@ -180,9 +177,9 @@ mod manual_implementation_tests {
     #[test]
     fn generic_key_value_numeric() {
         let config = KeyValue { key: "timeout".to_string(), value: 30u32 };
-        assert_eq!(config.to_string(), "timeout=30");
+        assert_eq!(config.render_string(), "timeout=30");
 
-        let parsed = KeyValue::<u32>::from_string("retry=5").unwrap();
+        let parsed = KeyValue::<u32>::from_str("retry=5").unwrap();
         assert_eq!(parsed.key, "retry");
         assert_eq!(parsed.value, 5);
     }
@@ -190,9 +187,9 @@ mod manual_implementation_tests {
     #[test]
     fn generic_key_value_boolean() {
         let config = KeyValue { key: "enabled".to_string(), value: true };
-        assert_eq!(config.to_string(), "enabled=true");
+        assert_eq!(config.render_string(), "enabled=true");
 
-        let parsed = KeyValue::<bool>::from_string("debug=false").unwrap();
+        let parsed = KeyValue::<bool>::from_str("debug=false").unwrap();
         assert_eq!(parsed.key, "debug");
         assert_eq!(parsed.value, false);
     }
@@ -200,11 +197,11 @@ mod manual_implementation_tests {
     #[test]
     fn generic_key_value_parse_errors() {
         // No equals sign
-        let result = KeyValue::<u32>::from_string("timeout30");
+        let result = KeyValue::<u32>::from_str("timeout30");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
 
         // Invalid numeric value
-        let result = KeyValue::<u32>::from_string("timeout=abc");
+        let result = KeyValue::<u32>::from_str("timeout=abc");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
     }
 
@@ -227,13 +224,12 @@ mod manual_implementation_tests {
 
     impl Template for CustomConfig {
         type Error = CustomError;
-        type Struct = CustomConfig;
 
-        fn to_string(&self) -> String {
+        fn render_string(&self) -> String {
             format!("custom:{}", self.value)
         }
 
-        fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
+        fn from_str(s: &str) -> Result<Self, Self::Error> {
             if let Some(value) = s.strip_prefix("custom:") {
                 Ok(CustomConfig { value: value.to_string() })
             } else {
@@ -245,12 +241,12 @@ mod manual_implementation_tests {
     #[test]
     fn custom_error_type() {
         let config = CustomConfig { value: "test".to_string() };
-        assert_eq!(config.to_string(), "custom:test");
+        assert_eq!(config.render_string(), "custom:test");
 
-        let parsed = CustomConfig::from_string("custom:hello").unwrap();
+        let parsed = CustomConfig::from_str("custom:hello").unwrap();
         assert_eq!(parsed.value, "hello");
 
-        let result = CustomConfig::from_string("invalid");
+        let result = CustomConfig::from_str("invalid");
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().to_string(), "Custom error: Missing custom: prefix");
     }
@@ -265,13 +261,12 @@ mod manual_implementation_edge_cases {
 
     impl Template for Unit {
         type Error = TemplateError;
-        type Struct = Unit;
 
-        fn to_string(&self) -> String {
+        fn render_string(&self) -> String {
             "unit".to_string()
         }
 
-        fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
+        fn from_str(s: &str) -> Result<Self, Self::Error> {
             if s == "unit" {
                 Ok(Unit)
             } else {
@@ -283,12 +278,12 @@ mod manual_implementation_edge_cases {
     #[test]
     fn unit_struct_implementation() {
         let unit = Unit;
-        assert_eq!(unit.to_string(), "unit");
+        assert_eq!(unit.render_string(), "unit");
 
-        let parsed = Unit::from_string("unit").unwrap();
+        let parsed = Unit::from_str("unit").unwrap();
         let _ = parsed; // Unit has no fields to check
 
-        let result = Unit::from_string("invalid");
+        let result = Unit::from_str("invalid");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
     }
 
@@ -299,13 +294,12 @@ mod manual_implementation_edge_cases {
 
     impl Template for Empty {
         type Error = TemplateError;
-        type Struct = Empty;
 
-        fn to_string(&self) -> String {
+        fn render_string(&self) -> String {
             "".to_string()
         }
 
-        fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
+        fn from_str(s: &str) -> Result<Self, Self::Error> {
             if s.is_empty() {
                 Ok(Empty { _phantom: std::marker::PhantomData })
             } else {
@@ -317,12 +311,12 @@ mod manual_implementation_edge_cases {
     #[test]
     fn empty_template_implementation() {
         let empty = Empty { _phantom: std::marker::PhantomData };
-        assert_eq!(empty.to_string(), "");
+        assert_eq!(empty.render_string(), "");
 
-        let parsed = Empty::from_string("").unwrap();
+        let parsed = Empty::from_str("").unwrap();
         let _ = parsed; // No fields to check
 
-        let result = Empty::from_string("not empty");
+        let result = Empty::from_str("not empty");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
     }
 
@@ -334,13 +328,12 @@ mod manual_implementation_edge_cases {
 
     impl Template for ComplexNested {
         type Error = TemplateError;
-        type Struct = ComplexNested;
 
-        fn to_string(&self) -> String {
+        fn render_string(&self) -> String {
             format!("{}:[{}]", self.outer, self.inner.join(","))
         }
 
-        fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
+        fn from_str(s: &str) -> Result<Self, Self::Error> {
             if let Some((outer_part, inner_part)) = s.split_once(':') {
                 if let Some(inner_content) = inner_part.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
                     let inner = if inner_content.is_empty() {
@@ -369,14 +362,14 @@ mod manual_implementation_edge_cases {
             inner: vec!["a".to_string(), "b".to_string(), "c".to_string()],
         };
         
-        assert_eq!(complex.to_string(), "test:[a,b,c]");
+        assert_eq!(complex.render_string(), "test:[a,b,c]");
 
-        let parsed = ComplexNested::from_string("hello:[x,y,z]").unwrap();
+        let parsed = ComplexNested::from_str("hello:[x,y,z]").unwrap();
         assert_eq!(parsed.outer, "hello");
         assert_eq!(parsed.inner, vec!["x", "y", "z"]);
 
         // Empty inner
-        let empty_inner = ComplexNested::from_string("empty:[]").unwrap();
+        let empty_inner = ComplexNested::from_str("empty:[]").unwrap();
         assert_eq!(empty_inner.outer, "empty");
         assert!(empty_inner.inner.is_empty());
     }
@@ -384,15 +377,15 @@ mod manual_implementation_edge_cases {
     #[test]
     fn complex_nested_parse_errors() {
         // Missing colon
-        let result = ComplexNested::from_string("no_colon");
+        let result = ComplexNested::from_str("no_colon");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
 
         // Missing brackets
-        let result = ComplexNested::from_string("test:no_brackets");
+        let result = ComplexNested::from_str("test:no_brackets");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
 
         // Mismatched brackets
-        let result = ComplexNested::from_string("test:[missing_close");
+        let result = ComplexNested::from_str("test:[missing_close");
         assert!(matches!(result, Err(TemplateError::Parse(_))));
     }
 }

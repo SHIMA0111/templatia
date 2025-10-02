@@ -108,6 +108,69 @@ fn main() {
 }
 ```
 
+### Option<T> support
+Fields with `Option<T>` type automatically default to `None` when the placeholder is not present in the template:
+
+```rust
+use templatia::Template;
+
+#[derive(Template)]
+#[templatia(template = "host={host}:{port}", allow_missing_placeholders)]
+struct ServerConfig {
+    host: String,
+    port: u16,
+    username: Option<String>,
+    password: Option<String>,
+}
+
+fn main() {
+    let config = ServerConfig::from_string("host=localhost:8080").unwrap();
+    assert_eq!(config.host, "localhost");
+    assert_eq!(config.port, 8080);
+    assert_eq!(config.username, None); // Not in template, defaults to None
+    assert_eq!(config.password, None); // Not in template, defaults to None
+}
+```
+
+By default, empty strings in `Option<String>` are parsed as `None`. To treat empty strings as `Some("")`, use the `empty_str_option_not_none` attribute:
+
+```rust
+use templatia::Template;
+
+#[derive(Template)]
+#[templatia(template = "value={value}", empty_str_option_not_none)]
+struct OptionalValue {
+    value: Option<String>,
+}
+
+fn main() {
+    let parsed = OptionalValue::from_string("value=").unwrap();
+    assert_eq!(parsed.value, Some("".to_string())); // Empty string becomes Some("")
+}
+```
+
+### Missing placeholders
+Use the `allow_missing_placeholders` attribute to allow fields that are not present in the template:
+
+```rust
+use templatia::Template;
+
+#[derive(Template)]
+#[templatia(template = "id={id}", allow_missing_placeholders)]
+struct Config {
+    id: u32,
+    name: String,           // Not in template, uses Default::default()
+    optional: Option<u32>,  // Not in template, becomes None
+}
+
+fn main() {
+    let config = Config::from_string("id=42").unwrap();
+    assert_eq!(config.id, 42);
+    assert_eq!(config.name, "");          // Default for String
+    assert_eq!(config.optional, None);     // None for Option<T>
+}
+```
+
 ### Placeholders and types
 - Each `{name}` in the template must correspond to a named struct field
 - Field types used in the template must implement Display and FromStr
@@ -127,11 +190,14 @@ templatia defines a simple error type for parsing and validation:
 - templatia
   - Template trait
     - A trait that defines the behavior of `templatia`.
-      It defines two methods: `to_string()` and `from_string()`, and related type: `Error`.
+      It defines two methods: `to_string()` and `from_string()`, and one associated type: `Error`.
   - TemplateError enum for error reporting
 - templatia-derive
   - #[derive(Template)] macro for named structs
-  - Optional attribute: `#[templatia(template = "...")]`
+  - Optional attributes:
+    - `#[templatia(template = "...")]` for custom templates
+    - `#[templatia(allow_missing_placeholders)]` to allow fields not in template
+    - `#[templatia(empty_str_option_not_none)]` to treat empty strings as `Some("")` for `Option<String>`
   - Validates that placeholders exist as fields
 
 ## Feature flags
@@ -142,7 +208,7 @@ templatia defines a simple error type for parsing and validation:
 - 0.0.2
   - [x] Define default behavior for missing data: `#[templatia(allow_missing_placeholders)]` attribute allows fields not in template to use `Default::default()`
   - [x] Option<T>: default to `None` when the placeholder is absent (automatic support without requiring `allow_missing_placeholders`)
-  - [ ] Remove `type Struct` from `Template` trait
+  - [x] Remove `type Struct` from `Template` trait
 - 0.0.3
   - [ ] Enrich error handling and warnings (clearer diagnostics and coverage)
 - 0.0.4
