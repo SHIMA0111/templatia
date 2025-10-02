@@ -141,7 +141,7 @@ templatia defines a simple error type for parsing and validation:
 ## Road Map (0.0.x roadmap toward 0.1.0)
 - 0.0.2
   - [x] Define default behavior for missing data: `#[templatia(allow_missing_placeholders)]` attribute allows fields not in template to use `Default::default()`
-  - [ ] Option<T>: default to `None` when the placeholder is absent (automatic support without requiring `allow_missing_placeholders`)
+  - [x] Option<T>: default to `None` when the placeholder is absent (automatic support without requiring `allow_missing_placeholders`)
   - [ ] Remove `type Struct` from `Template` trait
 - 0.0.3
   - [ ] Enrich error handling and warnings (clearer diagnostics and coverage)
@@ -150,6 +150,13 @@ templatia defines a simple error type for parsing and validation:
   - [ ] Add `container` attribute to increase flexibility at the parent structure level
 - 0.0.5
   - [ ] Support additional data forms: tuple (unnamed) structs, union structs, and enums
+- 0.0.6 and beyond (Future versions)
+  - [ ] Optional placeholder syntax: `{name?}` to make individual placeholders optional
+    - For `Option<T>` fields, treat the placeholder as empty string when value is `None`
+    - During parsing, return `None` when the placeholder is absent
+  - [ ] Range optional syntax: `[literal{placeholder}literal]?` to make entire template sections optional
+    - Example: `#[templatia(template = "[name={name}]?")]` omits `name=` entirely from output when `name` is `None`
+    - Enables expressing presence/absence of optional sections while maintaining parse consistency
 
 ## Testing policy and documentation conventions
 This repository follows AGENTS.md for documentation and testing conventions. In short:
