@@ -64,8 +64,8 @@ struct TemplateOpts {
 /// # Type Requirements
 ///
 /// All fields referenced in the template must implement:
-/// - `std::fmt::Display` for serialization (`to_string`)
-/// - `std::str::FromStr` for deserialization (`from_string`)
+/// - `std::fmt::Display` for serialization (`render_string`)
+/// - `std::str::FromStr` for deserialization (`from_str`)
 /// - `std::cmp::PartialEq` for consistency validation with duplicate placeholders
 ///
 /// # Compilation Errors
@@ -234,13 +234,12 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
     quote! {
         impl #impl_generics ::templatia::Template for #name #ty_generics #where_clause {
             type Error = templatia::TemplateError;
-            type Struct = #name #ty_generics;
 
-            fn to_string(&self) -> String {
+            fn render_string(&self) -> String {
                 format!(#format_string, #(#format_args),*)
             }
 
-            fn from_string(s: &str) -> Result<Self::Struct, Self::Error> {
+            fn from_str(s: &str) -> Result<Self, Self::Error> {
                 use ::templatia::__private::chumsky::Parser;
 
                 let parser = #str_from_parser;

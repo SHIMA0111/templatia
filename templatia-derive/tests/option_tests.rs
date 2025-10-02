@@ -18,10 +18,10 @@ mod basic_option_tests {
             name: Some("Alice".into()),
         };
 
-        let template = with_name.to_string();
+        let template = with_name.render_string();
         assert_eq!(template, "name=Alice");
 
-        let parsed = OptionalName::from_string(&template).unwrap();
+        let parsed = OptionalName::from_str(&template).unwrap();
         assert_eq!(parsed, with_name);
         assert_eq!(parsed.name, Some("Alice".into()));
     }
@@ -40,10 +40,10 @@ mod basic_option_tests {
             name: Some("test".into()),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "id=42");
 
-        let parsed = OptionalFields::from_string(&template).unwrap();
+        let parsed = OptionalFields::from_str(&template).unwrap();
         assert_eq!(parsed.id, 42);
         assert_eq!(parsed.name, None); // Optional field not in template should be None
     }
@@ -64,8 +64,8 @@ mod basic_option_tests {
             email: Some("test@example.com".into()),
         };
 
-        let template = instance.to_string();
-        let parsed = MixedFields::from_string(&template).unwrap();
+        let template = instance.render_string();
+        let parsed = MixedFields::from_str(&template).unwrap();
 
         assert_eq!(parsed.id, 100);
         assert_eq!(parsed.name, ""); // Non-optional gets Default
@@ -88,10 +88,10 @@ mod basic_option_tests {
             email: Some("bob@example.com".into()),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "name=Bob");
 
-        let parsed = MultipleOptional::from_string(&template).unwrap();
+        let parsed = MultipleOptional::from_str(&template).unwrap();
         assert_eq!(parsed.name, Some("Bob".into()));
         assert_eq!(parsed.age, None);
         assert_eq!(parsed.email, None);
@@ -111,10 +111,10 @@ mod basic_option_tests {
             age: Some(30),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "name=Charlie, age=30");
 
-        let parsed = AllPresent::from_string(&template).unwrap();
+        let parsed = AllPresent::from_str(&template).unwrap();
         assert_eq!(parsed, instance);
         assert_eq!(parsed.name, Some("Charlie".into()));
         assert_eq!(parsed.age, Some(30));
@@ -130,11 +130,11 @@ mod basic_option_tests {
 
         // When serializing None, it should still produce the template format
         let with_none = OptionalValue { value: None };
-        let _template = with_none.to_string();
+        let _template = with_none.render_string();
         // The None value will be serialized as empty string or similar
         
         // But parsing from a valid template should give Some
-        let parsed = OptionalValue::from_string("value=test").unwrap();
+        let parsed = OptionalValue::from_str("value=test").unwrap();
         assert_eq!(parsed.value, Some("test".into()));
     }
 }
@@ -155,8 +155,8 @@ mod option_type_tests {
             text: Some("hello world".into()),
         };
 
-        let template = instance.to_string();
-        let parsed = OptionalString::from_string(&template).unwrap();
+        let template = instance.render_string();
+        let parsed = OptionalString::from_str(&template).unwrap();
         assert_eq!(parsed, instance);
     }
 
@@ -178,8 +178,8 @@ mod option_type_tests {
             i32_val: Some(-2147483648),
         };
 
-        let template = instance.to_string();
-        let parsed = OptionalNumerics::from_string(&template).unwrap();
+        let template = instance.render_string();
+        let parsed = OptionalNumerics::from_str(&template).unwrap();
         assert_eq!(parsed, instance);
     }
 
@@ -192,17 +192,17 @@ mod option_type_tests {
         }
 
         let with_true = OptionalBool { flag: Some(true) };
-        let template_true = with_true.to_string();
+        let template_true = with_true.render_string();
         assert_eq!(template_true, "flag=true");
 
-        let parsed_true = OptionalBool::from_string(&template_true).unwrap();
+        let parsed_true = OptionalBool::from_str(&template_true).unwrap();
         assert_eq!(parsed_true, with_true);
 
         let with_false = OptionalBool { flag: Some(false) };
-        let template_false = with_false.to_string();
+        let template_false = with_false.render_string();
         assert_eq!(template_false, "flag=false");
 
-        let parsed_false = OptionalBool::from_string(&template_false).unwrap();
+        let parsed_false = OptionalBool::from_str(&template_false).unwrap();
         assert_eq!(parsed_false, with_false);
     }
 
@@ -215,10 +215,10 @@ mod option_type_tests {
         }
 
         let instance = OptionalChar { ch: Some('X') };
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "ch=X");
 
-        let parsed = OptionalChar::from_string(&template).unwrap();
+        let parsed = OptionalChar::from_str(&template).unwrap();
         assert_eq!(parsed, instance);
     }
 
@@ -236,8 +236,8 @@ mod option_type_tests {
             f64_val: Some(std::f64::consts::E),
         };
 
-        let template = instance.to_string();
-        let parsed = OptionalFloats::from_string(&template).unwrap();
+        let template = instance.render_string();
+        let parsed = OptionalFloats::from_str(&template).unwrap();
         
         assert!((parsed.f32_val.unwrap() - 3.14).abs() < 1e-5);
         assert!((parsed.f64_val.unwrap() - std::f64::consts::E).abs() < 1e-10);
@@ -260,10 +260,10 @@ mod option_complex_tests {
             id: Some("value".into()),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "first=value, second=value");
 
-        let parsed = DuplicateOptional::from_string(&template).unwrap();
+        let parsed = DuplicateOptional::from_str(&template).unwrap();
         assert_eq!(parsed, instance);
     }
 
@@ -275,7 +275,7 @@ mod option_complex_tests {
             val: Option<String>,
         }
 
-        let result = DuplicateCheck::from_string("a=first, b=second");
+        let result = DuplicateCheck::from_str("a=first, b=second");
         
         match result {
             Err(TemplateError::InconsistentValues {
@@ -305,10 +305,10 @@ mod option_complex_tests {
             second: Some('B'),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "AB");
 
-        let parsed = ConsecutiveOptionalChars::from_string(&template).unwrap();
+        let parsed = ConsecutiveOptionalChars::from_str(&template).unwrap();
         assert_eq!(parsed, instance);
     }
 
@@ -326,10 +326,10 @@ mod option_complex_tests {
             flag2: Some(false),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "truefalse");
 
-        let parsed = ConsecutiveOptionalBools::from_string(&template).unwrap();
+        let parsed = ConsecutiveOptionalBools::from_str(&template).unwrap();
         assert_eq!(parsed, instance);
     }
 
@@ -349,15 +349,15 @@ mod option_complex_tests {
             path: Some("api/v1".into()),
         };
 
-        let template = full_url.to_string();
+        let template = full_url.render_string();
         assert_eq!(template, "https://example.com:8080/api/v1");
 
-        let parsed = OptionalUrl::from_string(&template).unwrap();
+        let parsed = OptionalUrl::from_str(&template).unwrap();
         assert_eq!(parsed, full_url);
 
         // Test with only required field
         let minimal_template = "https://example.com:80/";
-        let parsed_minimal = OptionalUrl::from_string(minimal_template).unwrap();
+        let parsed_minimal = OptionalUrl::from_str(minimal_template).unwrap();
         assert_eq!(parsed_minimal.host, "example.com");
         assert_eq!(parsed_minimal.port, Some(80));
         // New behavior: empty string path is parsed as None
@@ -380,10 +380,10 @@ mod option_complex_tests {
             email: Some("alice@example.com".into()),
         };
 
-        let template = person.to_string();
+        let template = person.render_string();
         assert_eq!(template, r#"{"name": "Alice", "age": 30}"#);
 
-        let parsed = OptionalPerson::from_string(&template).unwrap();
+        let parsed = OptionalPerson::from_str(&template).unwrap();
         assert_eq!(parsed.name, "Alice");
         assert_eq!(parsed.age, Some(30));
         assert_eq!(parsed.email, None); // Not in template
@@ -406,12 +406,12 @@ mod option_roundtrip_tests {
             data: Some("test_value".into()),
         };
 
-        let template1 = original.to_string();
-        let parsed1 = SimpleOptional::from_string(&template1).unwrap();
+        let template1 = original.render_string();
+        let parsed1 = SimpleOptional::from_str(&template1).unwrap();
         assert_eq!(parsed1, original);
 
-        let template2 = parsed1.to_string();
-        let parsed2 = SimpleOptional::from_string(&template2).unwrap();
+        let template2 = parsed1.render_string();
+        let parsed2 = SimpleOptional::from_str(&template2).unwrap();
         assert_eq!(parsed2, original);
 
         assert_eq!(template1, template2);
@@ -431,16 +431,16 @@ mod option_roundtrip_tests {
             optional_field: Some("ignored".into()),
         };
 
-        let template1 = original.to_string();
-        let parsed1 = WithOptional::from_string(&template1).unwrap();
+        let template1 = original.render_string();
+        let parsed1 = WithOptional::from_str(&template1).unwrap();
         
         assert_eq!(parsed1.id, 42);
         assert_eq!(parsed1.optional_field, None);
 
-        let template2 = parsed1.to_string();
+        let template2 = parsed1.render_string();
         assert_eq!(template1, template2);
 
-        let parsed2 = WithOptional::from_string(&template2).unwrap();
+        let parsed2 = WithOptional::from_str(&template2).unwrap();
         assert_eq!(parsed2, parsed1);
     }
 
@@ -460,8 +460,8 @@ mod option_roundtrip_tests {
 
         let mut current = original.clone();
         for _ in 0..5 {
-            let template = current.to_string();
-            current = MultiOptional::from_string(&template).unwrap();
+            let template = current.render_string();
+            current = MultiOptional::from_str(&template).unwrap();
         }
 
         assert_eq!(current, original);
@@ -481,7 +481,7 @@ mod option_error_tests {
         }
 
         // New behavior: invalid values for Option<T> become None instead of error
-        let result = OptionalPort::from_string("port=invalid");
+        let result = OptionalPort::from_str("port=invalid");
         match result {
             Ok(_) => panic!("Expected Parse error, got Ok"),
             Err(TemplateError::Parse(msg)) => {
@@ -499,7 +499,7 @@ mod option_error_tests {
             flag: Option<bool>,
         }
 
-        let result = OptionalFlag::from_string("flag=maybe");
+        let result = OptionalFlag::from_str("flag=maybe");
         
         match result {
             Err(TemplateError::Parse(msg)) => {
@@ -532,10 +532,10 @@ mod option_mixed_tests {
             optional_age: Some(25),
         };
 
-        let template = config.to_string();
+        let template = config.render_string();
         assert_eq!(template, "id=1, name=Test");
 
-        let parsed = MixedConfig::from_string(&template).unwrap();
+        let parsed = MixedConfig::from_str(&template).unwrap();
         assert_eq!(parsed.id, 1);
         assert_eq!(parsed.name, "Test");
         assert_eq!(parsed.optional_email, None);
@@ -558,8 +558,8 @@ mod option_mixed_tests {
             c: Some(true),
         };
 
-        let template = instance.to_string();
-        let parsed = AllOptional::from_string(&template).unwrap();
+        let template = instance.render_string();
+        let parsed = AllOptional::from_str(&template).unwrap();
         
         assert_eq!(parsed.a, Some("value".into()));
         assert_eq!(parsed.b, None);
@@ -579,10 +579,10 @@ mod option_mixed_tests {
             optional: Some("maybe".into()),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "required = must_have\noptional = maybe");
 
-        let parsed = DefaultWithOptional::from_string(&template).unwrap();
+        let parsed = DefaultWithOptional::from_str(&template).unwrap();
         assert_eq!(parsed, instance);
     }
 
@@ -604,10 +604,10 @@ mod option_mixed_tests {
             d: "D".into(),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "A-B-3");
 
-        let parsed = VariousPositions::from_string(&template).unwrap();
+        let parsed = VariousPositions::from_str(&template).unwrap();
         assert_eq!(parsed.a, Some("A".into()));
         assert_eq!(parsed.b, "B");
         assert_eq!(parsed.c, Some(3));
@@ -623,7 +623,7 @@ mod option_mixed_tests {
         }
 
         let template = "prefix=";
-        let parsed = EmptyOptional::from_string(template).unwrap();
+        let parsed = EmptyOptional::from_str(template).unwrap();
         // New behavior: empty string is parsed as None by default
         assert_eq!(parsed.value, None);
     }
@@ -655,10 +655,10 @@ mod option_mixed_tests {
             timeout: Some(30),
         };
 
-        let template = config.to_string();
+        let template = config.render_string();
         assert_eq!(template, "Server: localhost:5432 | DB: mydb");
 
-        let parsed = ServerConfig::from_string(&template).unwrap();
+        let parsed = ServerConfig::from_str(&template).unwrap();
         assert_eq!(parsed.host, "localhost");
         assert_eq!(parsed.port, 5432);
         assert_eq!(parsed.database, "mydb");
@@ -682,7 +682,7 @@ mod empty_str_option_not_none_tests {
         }
 
         let template = "prefix=";
-        let parsed = EmptyAsIs::from_string(template).unwrap();
+        let parsed = EmptyAsIs::from_str(template).unwrap();
         assert_eq!(parsed.value, Some("".into()));
     }
 
@@ -695,7 +695,7 @@ mod empty_str_option_not_none_tests {
         }
 
         let template = "prefix=";
-        let parsed = EmptyAsNone::from_string(template).unwrap();
+        let parsed = EmptyAsNone::from_str(template).unwrap();
         assert_eq!(parsed.value, None);
     }
 
@@ -708,7 +708,7 @@ mod empty_str_option_not_none_tests {
         }
 
         let template = "prefix=test";
-        let parsed = NonEmpty::from_string(template).unwrap();
+        let parsed = NonEmpty::from_str(template).unwrap();
         assert_eq!(parsed.value, Some("test".into()));
     }
 
@@ -722,7 +722,7 @@ mod empty_str_option_not_none_tests {
         }
 
         let template = "a=, b=value";
-        let parsed = MultipleOptionals::from_string(template).unwrap();
+        let parsed = MultipleOptionals::from_str(template).unwrap();
         assert_eq!(parsed.a, Some("".into()));
         assert_eq!(parsed.b, Some("value".into()));
     }
@@ -739,10 +739,10 @@ mod empty_str_option_not_none_tests {
             data: Some("".into()),
         };
 
-        let template = original.to_string();
+        let template = original.render_string();
         assert_eq!(template, "data=");
 
-        let parsed = RoundtripTest::from_string(&template).unwrap();
+        let parsed = RoundtripTest::from_str(&template).unwrap();
         assert_eq!(parsed.data, Some("".into()));
     }
 
@@ -756,7 +756,7 @@ mod empty_str_option_not_none_tests {
         }
 
         let template = "text=, num=42";
-        let parsed = MixedTypes::from_string(template).unwrap();
+        let parsed = MixedTypes::from_str(template).unwrap();
         assert_eq!(parsed.text, Some("".into()));
         assert_eq!(parsed.num, Some(42));
     }
@@ -771,7 +771,7 @@ mod empty_str_option_not_none_tests {
         }
 
         let template = "a=";
-        let parsed = WithMissing::from_string(template).unwrap();
+        let parsed = WithMissing::from_str(template).unwrap();
         assert_eq!(parsed.a, Some("".into()));
         assert_eq!(parsed.b, None); // Not in template
     }
@@ -795,10 +795,10 @@ mod consecutive_option_placeholder_tests {
             second: Some('B'),
         };
 
-        let template = chars.to_string();
+        let template = chars.render_string();
         assert_eq!(template, "AB");
 
-        let parsed = ConsecutiveOptionChars::from_string(&template).unwrap();
+        let parsed = ConsecutiveOptionChars::from_str(&template).unwrap();
         assert_eq!(parsed, chars);
     }
 
@@ -816,10 +816,10 @@ mod consecutive_option_placeholder_tests {
             flag2: Some(false),
         };
 
-        let template = bools.to_string();
+        let template = bools.render_string();
         assert_eq!(template, "truefalse");
 
-        let parsed = ConsecutiveOptionBools::from_string(&template).unwrap();
+        let parsed = ConsecutiveOptionBools::from_str(&template).unwrap();
         assert_eq!(parsed, bools);
     }
 
@@ -837,10 +837,10 @@ mod consecutive_option_placeholder_tests {
             flag: Some(true),
         };
 
-        let template = mixed.to_string();
+        let template = mixed.render_string();
         assert_eq!(template, "Xtrue");
 
-        let parsed = MixedOptionTypes::from_string(&template).unwrap();
+        let parsed = MixedOptionTypes::from_str(&template).unwrap();
         assert_eq!(parsed, mixed);
     }
 
@@ -858,10 +858,10 @@ mod consecutive_option_placeholder_tests {
             req_bool: false,
         };
 
-        let template = mixed.to_string();
+        let template = mixed.render_string();
         assert_eq!(template, "Tfalse");
 
-        let parsed = OptionAndRequired::from_string(&template).unwrap();
+        let parsed = OptionAndRequired::from_str(&template).unwrap();
         assert_eq!(parsed, mixed);
     }
 
@@ -881,10 +881,10 @@ mod consecutive_option_placeholder_tests {
             c: Some('Z'),
         };
 
-        let template = multi.to_string();
+        let template = multi.render_string();
         assert_eq!(template, "XYZ");
 
-        let parsed = MultipleOptionChars::from_string(&template).unwrap();
+        let parsed = MultipleOptionChars::from_str(&template).unwrap();
         assert_eq!(parsed, multi);
     }
 }
@@ -908,10 +908,10 @@ mod option_default_template_tests {
             active: Some(true),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "name = Alice\nage = 30\nactive = true");
 
-        let parsed = AllOptionalFields::from_string(&template).unwrap();
+        let parsed = AllOptionalFields::from_str(&template).unwrap();
         assert_eq!(parsed, instance);
     }
 
@@ -928,10 +928,10 @@ mod option_default_template_tests {
             count: None,
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "name = \ncount = ");
 
-        let parsed = WithNoneValues::from_string(&template).unwrap();
+        let parsed = WithNoneValues::from_str(&template).unwrap();
         assert_eq!(parsed.name, None);
         assert_eq!(parsed.count, None);
     }
@@ -951,10 +951,10 @@ mod option_default_template_tests {
             c: Some(false),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "a = value\nb = \nc = false");
 
-        let parsed = MixedSomeNone::from_string(&template).unwrap();
+        let parsed = MixedSomeNone::from_str(&template).unwrap();
         assert_eq!(parsed.a, Some("value".into()));
         assert_eq!(parsed.b, None);
         assert_eq!(parsed.c, Some(false));
@@ -973,10 +973,10 @@ mod option_default_template_tests {
             optional: Some("maybe".into()),
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "required = must_have\noptional = maybe");
 
-        let parsed = MixedOptionalRequired::from_string(&template).unwrap();
+        let parsed = MixedOptionalRequired::from_str(&template).unwrap();
         assert_eq!(parsed, instance);
     }
 
@@ -995,10 +995,10 @@ mod option_default_template_tests {
             c: None,
         };
 
-        let template = instance.to_string();
+        let template = instance.render_string();
         assert_eq!(template, "a = \nb = \nc = ");
 
-        let parsed = AllNone::from_string(&template).unwrap();
+        let parsed = AllNone::from_str(&template).unwrap();
         assert_eq!(parsed, instance);
     }
 }
