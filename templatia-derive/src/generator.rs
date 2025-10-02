@@ -175,7 +175,7 @@ pub(crate) fn generate_str_parser(
                 If you want to allow missing placeholders, \
                 use `#[templatia(allow_missing_placeholders)]` attribute.",
                 struct_name.to_string(),
-                missing_placeholders
+                missing_placeholders_non_option
                     .iter()
                     .map(|ident| ident.to_string())
                     .collect::<Vec<_>>()
