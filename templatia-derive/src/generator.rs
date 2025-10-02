@@ -1,7 +1,7 @@
 use crate::parser::TemplateSegments;
 use quote::quote;
 use std::collections::{HashMap, HashSet};
-use crate::utils::{get_type_name, is_allowed_consecutive_allowed_type};
+use crate::utils::{get_inner_type_from_option, get_type_name, is_allowed_consecutive_allowed_type};
 use crate::validator::validate_template_safety;
 
 pub(crate) fn generate_str_parser(
@@ -10,6 +10,7 @@ pub(crate) fn generate_str_parser(
     placeholder_names: &HashSet<String>,
     segments: &[TemplateSegments],
     allow_missing_placeholders: bool,
+    empty_str_as_none: bool,
 ) -> proc_macro2::TokenStream {
     // Get the field ident
     let all_field_idents = all_fields
@@ -22,6 +23,13 @@ pub(crate) fn generate_str_parser(
         .iter()
         .map(ToString::to_string)
         .collect::<HashSet<_>>();
+
+    let option_fields = all_fields
+        .iter()
+        .filter(|f| f.ident.is_some())
+        .filter(|f| get_inner_type_from_option(&f.ty).is_some())
+        .map(|f| (f.ident.as_ref().unwrap(), get_inner_type_from_option(&f.ty).unwrap()))
+        .collect::<HashMap<_, _>>();
 
     for name in placeholder_names {
         if !all_field_names.contains(name) {
@@ -86,9 +94,13 @@ pub(crate) fn generate_str_parser(
                     }
                 };
 
-                let field_type = &field.ty;
                 let field_parser =
-                    generate_field_parser(&name_ident, field_type, parsers.peek().cloned());
+                    generate_field_parser(
+                        &name_ident,
+                        &field.ty,
+                        parsers.peek().cloned(),
+                        empty_str_as_none,
+                    );
 
                 if parser_count == 0 {
                     generated_full_parser = field_parser;
@@ -127,7 +139,7 @@ pub(crate) fn generate_str_parser(
     let (tuple_pattern, dup_checks) = generate_tuple_pattern(&field_names);
 
     // Unique field names included in the template
-    let unique_field_names = placeholder_names
+    let unique_field_names_in_placeholder = placeholder_names
         .iter()
         .map(|name| syn::Ident::new(name, proc_macro2::Span::call_site()))
         .collect::<Vec<_>>();
@@ -136,9 +148,26 @@ pub(crate) fn generate_str_parser(
     let missing_placeholders = all_field_idents
         .iter()
         .filter(|&&ident| !placeholder_names.contains(&ident.to_string()))
+        .map(|ident| *ident)
         .collect::<Vec<_>>();
 
-    if !allow_missing_placeholders && !missing_placeholders.is_empty() {
+    // Missing field name which is an Option<T> type
+    let missing_placeholders_option = missing_placeholders
+        .iter()
+        .filter(|&&ident| option_fields.contains_key(&ident))
+        .map(|ident| *ident)
+        .collect::<Vec<_>>();
+
+    // Missing field name which is not an Option<T> type
+    let missing_placeholders_non_option = missing_placeholders
+        .iter()
+        .filter(|&&ident| !option_fields.contains_key(&ident))
+        .map(|ident| *ident)
+        .collect::<Vec<_>>();
+
+    // Even if the template has no all fields without allow_missing_placeholders,
+    // it is passed if the missing_placeholders are Option<T> type
+    if !allow_missing_placeholders && !missing_placeholders_non_option.is_empty() {
         let error = syn::Error::new(
             proc_macro2::Span::call_site(),
             format!(
@@ -146,7 +175,7 @@ pub(crate) fn generate_str_parser(
                 If you want to allow missing placeholders, \
                 use `#[templatia(allow_missing_placeholders)]` attribute.",
                 struct_name.to_string(),
-                missing_placeholders
+                missing_placeholders_non_option
                     .iter()
                     .map(|ident| ident.to_string())
                     .collect::<Vec<_>>()
@@ -164,8 +193,9 @@ pub(crate) fn generate_str_parser(
             //    the comma of the last element from the unique_field_names not be added comma,
             //    so the next element from the missing_placeholders returns error.
             // #(#Awesome),*, will be expanded to #Awesome, #Awesome,... but even if the element is empty, the comma is still there. This causes the error.
-            #(#unique_field_names,)*
-            #(#missing_placeholders: Default::default(),)*
+            #(#unique_field_names_in_placeholder,)*
+            #(#missing_placeholders_non_option: Default::default(),)*
+            #(#missing_placeholders_option: None,)*
         }
     };
 
@@ -179,9 +209,39 @@ pub(crate) fn generate_str_parser(
     let dup_conditions = dup_checks
         .iter()
         .map(|(base, dup, _)| quote! { #dup != #base });
-    let dup_names = dup_checks.iter().map(|(_, _, name)| quote! { #name });
-    let dup_bases = dup_checks.iter().map(|(base, _, _)| quote! { #base });
-    let dup_dups = dup_checks.iter().map(|(_, dup, _)| quote! { #dup });
+    let dup_names = dup_checks.iter().map(|(_, _, name)| {
+        quote! { #name }
+    });
+    let dup_bases = dup_checks
+        .iter()
+        .map(|(base, _, name)| {
+            let ident = syn::Ident::new(name, proc_macro2::Span::call_site());
+            if option_fields.contains_key(&ident) {
+                quote! {
+                    #base
+                        .as_ref()
+                        .map(|v| v.to_string())
+                        .unwrap_or_default()
+                }
+            } else {
+                quote! { #base }
+            }
+        });
+    let dup_dups = dup_checks
+        .iter()
+        .map(|(_, dup, name)| {
+            let ident = syn::Ident::new(name, proc_macro2::Span::call_site());
+            if option_fields.contains_key(&ident) {
+                quote! {
+                    #dup
+                        .as_ref()
+                        .map(|v| v.to_string())
+                        .unwrap_or_default()
+                }
+            } else {
+                quote! { #dup }
+            }
+        });
 
     let final_parser = quote! {
         #generated_full_parser
@@ -208,29 +268,127 @@ fn generate_field_parser(
     field_name: &syn::Ident,
     field_type: &syn::Type,
     next_segment: Option<&TemplateSegments>,
+    empty_str_as_none: bool,
 ) -> proc_macro2::TokenStream {
     let next_literal = match next_segment {
         Some(TemplateSegments::Literal(lit)) => Some(lit),
         _ => None,
     };
 
-    let value_extractor = if is_allowed_consecutive_allowed_type(field_type) {
+    if let Some(inner_type) = get_inner_type_from_option(field_type) {
+        // If the field type is Option<T>, then the field value is parsed as T. And the inner type should be not Option<T>, so the empty_str_as_none is false.
+        let inner_parser = generate_extract_as_str_parser(field_name, inner_type, next_literal, true);
+        let is_string_type = matches!(
+            get_type_name(inner_type).as_str(),
+            "str" | "String"
+        );
+
+        return if is_string_type && !empty_str_as_none {
+            quote! {
+                #inner_parser
+                    .try_map(|s: &str, span| {
+                        s.parse::<#inner_type>()
+                            .map(Some)
+                            .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
+                                span,
+                                format!("Failed to parse field \"{}\": {}", stringify!(#field_name), e)
+                            ))
+                })
+            }
+        } else {
+            quote! {
+                #inner_parser
+                    .try_map(|s: &str, span| {
+                        if s.is_empty() {
+                            Ok(None)
+                        } else {
+                            match s.parse::<#inner_type>() {
+                                Ok(v) => Ok(Some(v)),
+                                Err(e) => {
+                                    Err(::templatia::__private::chumsky::error::Rich::<char>::custom(
+                                        span,
+                                        format!("Failed to parse field \"{}\": {}", stringify!(#field_name), e)
+                                    ))
+                                }
+                            }
+                        }
+                    })
+            }
+        };
+    };
+
+    let value_extractor = generate_extract_as_str_parser(field_name, field_type, next_literal, false);
+
+    // CAUTION: In this generator, the try_map isn't called to the TokenStream; it calls the chumsky Object generated from to_slice().
+    quote! {
+        #value_extractor
+            .try_map(|s: &str, span| {
+                s.parse::<#field_type>()
+                    .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
+                        span,
+                        format!("Failed to parse field \"{}\": {}", stringify!(#field_name), e)
+                    ))
+            })
+    }
+}
+
+fn generate_extract_as_str_parser(
+    field_name: &syn::Ident,
+    field_type: &syn::Type,
+    next_literal: Option<&&str>,
+    is_optional: bool,
+) -> proc_macro2::TokenStream {
+    if is_allowed_consecutive_allowed_type(field_type) {
         match get_type_name(field_type).as_str() {
             "char" => quote! {
                 ::templatia::__private::chumsky::prelude::any::<&str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>()
                     .map(|c| c.to_string())
                     .to_slice()
             },
-            "bool" => quote! {
-                ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>("true")
-                    .or(::templatia::__private::chumsky::prelude::just("false"))
-                    .to_slice()
-                    // bool is a fixed size text so true and false parsed but if the text is not true or false,
-                    // it will return Err so handling it to adopt the error message.
-                    .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
-                        e.span().clone(),
-                        format!("Failed to parse field \"{}\": bool type should be \"true\" or \"false\" only", stringify!(#field_name))
-                    ))
+            "bool" => {
+                if is_optional {
+                    if let Some(next_literal) = next_literal {
+                        quote! {
+                            ::templatia::__private::chumsky::prelude::choice((
+                                ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>("true").to_slice(),
+                                ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>("false").to_slice(),
+                                // This order is important. chumsky::prelude::choice() will
+                                // return the first matched parser from the top. Therefore,
+                                // if this parser is on another place, the consecutive placeholder cannot be parsed.
+                                ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>(#next_literal)
+                                    .not()
+                                    .ignore_then(::templatia::__private::chumsky::prelude::any())
+                                    .repeated()
+                                    .to_slice(),
+                            ))
+                        }
+                    } else {
+                        quote! {
+                            ::templatia::__private::chumsky::prelude::choice((
+                                ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>("true").to_slice(),
+                                ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>("false").to_slice(),
+                                // This order is important. chumsky::prelude::choice() will
+                                // return the first matched parser from the top. Therefore,
+                                // if this parser is on another place, the consecutive placeholder cannot be parsed.
+                                ::templatia::__private::chumsky::prelude::any::<&str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>()
+                                    .repeated()
+                                    .to_slice(),
+                            ))
+                        }
+                    }
+                } else {
+                    quote! {
+                        ::templatia::__private::chumsky::prelude::just::<&str, &str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>("true")
+                            .or(::templatia::__private::chumsky::prelude::just("false"))
+                            .to_slice()
+                            // bool is a fixed size text so true and false parsed but if the text is not true or false,
+                            // it will return Err so handling it to adopt the error message.
+                            .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
+                                e.span().clone(),
+                                format!("Failed to parse field \"{}\": bool type should be \"true\" or \"false\" only", stringify!(#field_name))
+                            ))
+                    }
+                }
             },
             // Currently, allowed only char, bool. So, this branch is unreachable.
             _ => unreachable!(),
@@ -251,18 +409,6 @@ fn generate_field_parser(
                     .to_slice()
             }
         }
-    };
-
-    // CAUTION: In this generator, the try_map isn't called to the TokenStream; it calls the chumsky Object generated from to_slice().
-    quote! {
-        #value_extractor
-            .try_map(|s: &str, span| {
-                s.parse::<#field_type>()
-                    .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
-                        span,
-                        format!("Failed to parse field \"{}\": {}", stringify!(#field_name), e)
-                    ))
-            })
     }
 }
 
