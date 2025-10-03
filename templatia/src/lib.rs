@@ -99,7 +99,7 @@
 //! assert!(result.is_err());
 //! ```
 //!
-//! #### Option<T> Support
+//! #### `Option<T>` Support
 //! Fields with `Option<T>` type automatically default to `None` when the placeholder is not in the template:
 //!
 //! ```rust

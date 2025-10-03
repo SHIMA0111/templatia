@@ -108,7 +108,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
     };
 
     let allow_missing_placeholders = opts.allow_missing_placeholders.is_present();
-    let empty_some_str_as_is = opts.empty_str_option_not_none.is_present();
+    let empty_str_as_none = opts.empty_str_option_not_none.is_present();
 
     let all_fields = if let darling::ast::Data::Struct(data_struct) = &opts.data {
         &data_struct.fields
@@ -174,7 +174,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         &placeholder_names,
         &segments,
         allow_missing_placeholders,
-        !empty_some_str_as_is,
+        !empty_str_as_none,
     );
 
     // Generate trait bound
