@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 //! # Templatia Derive
 //!
 //! Procedural macros for the templatia template parsing library.
