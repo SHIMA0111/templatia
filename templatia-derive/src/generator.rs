@@ -70,11 +70,10 @@ pub(crate) fn generate_str_parser(
     while let Some(segment) = parsers.next() {
         match segment {
             TemplateSegments::Literal(lit) => {
-                let count = literals_counters
+                let count = *literals_counters
                     .entry(lit)
                     .and_modify(|count| *count += 1)
-                    .or_insert(1)
-                    .clone();
+                    .or_insert(1);
 
                 if parser_count == 0 {
                     generated_full_parser = quote! {
