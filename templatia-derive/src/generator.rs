@@ -65,6 +65,8 @@ pub(crate) fn generate_str_parser(
     let mut last_literal_parsed: &str = "";
     let mut last_literal_count: i32 = -1;
 
+    let replace_colon = quote! { replace(":", #escaped_colon_marker) };
+
     while let Some(segment) = parsers.next() {
         match segment {
             TemplateSegments::Literal(lit) => {
@@ -85,34 +87,31 @@ pub(crate) fn generate_str_parser(
                 generated_full_parser = quote! {
                     #generated_full_parser
                         .map_err(|e| {
-                            match e.found() {
-                                Some(_) => ::templatia::__private::chumsky::error::Rich::<char>::custom(
-                                    e.span().clone(),
-                                    format!("__templatia_parse_literal__:{}::{}",
-                                        #lit.replace(":", #escaped_colon_marker),
-                                        &s[e.span().start..].replace(":", #escaped_colon_marker)
-                                    )
-                                ),
+                            let start = match e.found() {
+                                Some(_) => {
+                                    e.span().start
+                                },
                                 None => {
-                                    let start = if #last_literal_count > 0 {
+                                    if #last_literal_count > 0 {
                                         let found_lit = s.match_indices(#last_literal_parsed).collect::<Vec<_>>();
                                         // SAFETY: In this branch, the last_literal_count is always 1 or more. So, the #last_literal_count - 1 is always converted to usize.
                                         let (last_indices, _) = found_lit[(#last_literal_count - 1) as usize];
                                         last_indices + #last_literal_parsed.len()
                                     } else {
                                         0usize
-                                    };
-
-                                    ::templatia::__private::chumsky::error::Rich::<char>::custom(
-                                        e.span().clone(),
-                                        // SAFETY: The start is 0 or index from the s. Therefore, this isn't an out of range.
-                                        format!("__templatia_parse_literal__:{}::{}",
-                                            #lit.replace(":", #escaped_colon_marker),
-                                            &s[start..].replace(":", #escaped_colon_marker)
-                                        )
-                                    )
+                                    }
                                 }
-                            }
+                            };
+
+
+                            ::templatia::__private::chumsky::error::Rich::<char>::custom(
+                                e.span().clone(),
+                                // SAFETY: The start is 0 or index from the s. Therefore, this isn't an out of range.
+                                format!("__templatia_parse_literal__:{}::{}",
+                                    stringify!(#lit).#replace_colon,
+                                    &s[start..].#replace_colon,
+                                )
+                            )
                         })
                 };
 
@@ -148,7 +147,7 @@ pub(crate) fn generate_str_parser(
                         &field.ty,
                         parsers.peek().cloned(),
                         empty_str_as_none,
-                        escaped_colon_marker,
+                        &replace_colon,
                     );
 
                 if parser_count == 0 {
@@ -301,9 +300,9 @@ pub(crate) fn generate_str_parser(
                         span,
                         format!(
                             "__templatia_conflict__:{}::{}::{}",
-                            #dup_names.replace(":", #escaped_colon_marker),
-                            #dup_bases.to_string().replace(":", #escaped_colon_marker),
-                            #dup_dups.to_string().replace(":", #escaped_colon_marker),
+                            #dup_names.#replace_colon,
+                            #dup_bases.to_string().#replace_colon,
+                            #dup_dups.to_string().#replace_colon,
                         )
                     ));
                 }
@@ -320,7 +319,7 @@ fn generate_field_parser(
     field_type: &syn::Type,
     next_segment: Option<&TemplateSegments>,
     empty_str_as_none: bool,
-    escaped_colon_marker: &str,
+    replace_colon: &proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
     let next_literal = match next_segment {
         Some(TemplateSegments::Literal(lit)) => Some(lit),
@@ -335,13 +334,16 @@ fn generate_field_parser(
             "str" | "String"
         );
 
+
         let error = quote! {
+            let op_type = format!("Option<{}>", stringify!(#inner_type));
+
             ::templatia::__private::chumsky::error::Rich::<char>::custom(
                 span,
-                format!("__templatia_parse_type__:{}::{}::Option<{}>",
-                    stringify!(#field_name).replace(":", #escaped_colon_marker),
-                    s.replace(":", #escaped_colon_marker),
-                    stringify!(#inner_type).replace(":", #escaped_colon_marker),
+                format!("__templatia_parse_type__:{}::{}::{}",
+                    stringify!(#field_name).#replace_colon,
+                    s.#replace_colon,
+                    op_type.#replace_colon,
                 )
             )
         };
@@ -352,7 +354,7 @@ fn generate_field_parser(
                     .try_map(|s: &str, span| {
                         s.parse::<#inner_type>()
                             .map(Some)
-                            .map_err(|_| #error)
+                            .map_err(|_| {#error})
                 })
             }
         } else {
@@ -362,10 +364,9 @@ fn generate_field_parser(
                         if s.is_empty() {
                             Ok(None)
                         } else {
-                            match s.parse::<#inner_type>() {
-                                Ok(v) => Ok(Some(v)),
-                                Err(_) => Err(#error),
-                            }
+                            s.parse::<#inner_type>()
+                                .map(Some)
+                                .map_err(|_| {#error})
                         }
                     })
             }
@@ -382,9 +383,9 @@ fn generate_field_parser(
                     .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
                         span,
                         format!("__templatia_parse_type__:{}::{}::{}",
-                            stringify!(#field_name).replace(":", #escaped_colon_marker),
-                            s.replace(":", #escaped_colon_marker),
-                            stringify!(#field_type).replace(":", #escaped_colon_marker),
+                            stringify!(#field_name).#replace_colon,
+                            s.#replace_colon,
+                            stringify!(#field_type).#replace_colon,
                         )
                     ))
             })
