@@ -86,16 +86,13 @@ pub(crate) fn generate_str_parser(
                     #generated_full_parser
                         .map_err(|e| {
                             match e.found() {
-                                Some(_) => {
-
-                                    let escaped_expected_lit = #lit.replace(":", #escaped_colon_marker);
-                                    let escaped_got_lit = &s[e.span().start..].replace(":", #escaped_colon_marker);
-
-                                    ::templatia::__private::chumsky::error::Rich::<char>::custom(
-                                        e.span().clone(),
-                                        format!("__templatia_parse_literal__:{}::{}", stringify!(escaped_expected_lit), escaped_got_lit)
+                                Some(_) => ::templatia::__private::chumsky::error::Rich::<char>::custom(
+                                    e.span().clone(),
+                                    format!("__templatia_parse_literal__:{}::{}",
+                                        #lit.replace(":", #escaped_colon_marker),
+                                        &s[e.span().start..].replace(":", #escaped_colon_marker)
                                     )
-                                },
+                                ),
                                 None => {
                                     let start = if #last_literal_count > 0 {
                                         let found_lit = s.match_indices(#last_literal_parsed).collect::<Vec<_>>();
@@ -106,13 +103,13 @@ pub(crate) fn generate_str_parser(
                                         0usize
                                     };
 
-                                    let escaped_expected_lit = #lit.replace(":", #escaped_colon_marker);
-                                    let escaped_got_lit = &s[start..].replace(":", #escaped_colon_marker);
-
                                     ::templatia::__private::chumsky::error::Rich::<char>::custom(
                                         e.span().clone(),
                                         // SAFETY: The start is 0 or index from the s. Therefore, this isn't an out of range.
-                                        format!("__templatia_parse_literal__:{}::{}", escaped_expected_lit, escaped_got_lit)
+                                        format!("__templatia_parse_literal__:{}::{}",
+                                            #lit.replace(":", #escaped_colon_marker),
+                                            &s[start..].replace(":", #escaped_colon_marker)
+                                        )
                                     )
                                 }
                             }
@@ -304,7 +301,7 @@ pub(crate) fn generate_str_parser(
                         span,
                         format!(
                             "__templatia_conflict__:{}::{}::{}",
-                            #dup_names.to_string().replace(":", #escaped_colon_marker),
+                            #dup_names.replace(":", #escaped_colon_marker),
                             #dup_bases.to_string().replace(":", #escaped_colon_marker),
                             #dup_dups.to_string().replace(":", #escaped_colon_marker),
                         )
@@ -338,19 +335,24 @@ fn generate_field_parser(
             "str" | "String"
         );
 
+        let error = quote! {
+            ::templatia::__private::chumsky::error::Rich::<char>::custom(
+                span,
+                format!("__templatia_parse_type__:{}::{}::Option<{}>",
+                    stringify!(#field_name).replace(":", #escaped_colon_marker),
+                    s.replace(":", #escaped_colon_marker),
+                    stringify!(#inner_type).replace(":", #escaped_colon_marker),
+                )
+            )
+        };
+
         return if is_string_type && !empty_str_as_none {
             quote! {
                 #inner_parser
                     .try_map(|s: &str, span| {
                         s.parse::<#inner_type>()
                             .map(Some)
-                            .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
-                                span,
-                                format!("__templatia_parse_type__:{}::{}::Option<{}>",
-                                    stringify!(#field_name).replace(":", #escaped_colon_marker),
-                                    s.replace(":", #escaped_colon_marker),
-                                    stringify!(#inner_type).replace(":", #escaped_colon_marker),
-                                )))
+                            .map_err(|_| #error)
                 })
             }
         } else {
@@ -362,15 +364,7 @@ fn generate_field_parser(
                         } else {
                             match s.parse::<#inner_type>() {
                                 Ok(v) => Ok(Some(v)),
-                                Err(e) => {
-                                    Err(::templatia::__private::chumsky::error::Rich::<char>::custom(
-                                        span,
-                                        format!("__templatia_parse_type__:{}::{}::Option<{}>",
-                                            stringify!(#field_name),
-                                            s.replace(":", #escaped_colon_marker),
-                                            stringify!(#inner_type),
-                                        )))
-                                }
+                                Err(_) => Err(#error),
                             }
                         }
                     })
@@ -388,9 +382,9 @@ fn generate_field_parser(
                     .map_err(|e| ::templatia::__private::chumsky::error::Rich::<char>::custom(
                         span,
                         format!("__templatia_parse_type__:{}::{}::{}",
-                            stringify!(#field_name),
+                            stringify!(#field_name).replace(":", #escaped_colon_marker),
                             s.replace(":", #escaped_colon_marker),
-                            stringify!(#field_type),
+                            stringify!(#field_type).replace(":", #escaped_colon_marker),
                         )
                     ))
             })
