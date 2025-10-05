@@ -265,7 +265,7 @@
 //!
 //! // Parse error example
 //! match Config::from_str("port=not_a_number") {
-//!     Err(TemplateError::Parse(msg)) => println!("Parse failed: {}", msg),
+//!     Err(TemplateError::ParseToType { placeholder, value, type_name }) => println!("Parse failed: placeholder '{}' with value '{}' could not be parsed as type '{}'", placeholder, value, type_name),
 //!     _ => unreachable!(),
 //! }
 //!
@@ -514,8 +514,8 @@ pub trait Template where Self: Sized {
     ///
     /// // Error handling
     /// match Connection::from_str("host=localhost:invalid_port") {
-    ///     Err(TemplateError::Parse(msg)) => {
-    ///         println!("Parsing failed: {}", msg);
+    ///     Err(TemplateError::ParseToType { placeholder, value, type_name }) => {
+    ///         println!("Failed to parse {}: the value `{}` cannot parse to `{}`", placeholder, value, type_name);
     ///     }
     ///     _ => panic!("Expected parse error"),
     /// }
@@ -540,6 +540,19 @@ pub enum TemplateError {
         placeholder: String,
         first_value: String,
         second_value: String,
+    },
+    #[error(
+        "Cannot parse the placeholder '{placeholder}' with value '{value}' to type '{type_name}', please check the type compatibility"
+    )]
+    ParseToType {
+        placeholder: String,
+        value: String,
+        type_name: String,
+    },
+    #[error("Template defines '{expected_next_literal}' but not found it in '{remaining_text}'")]
+    UnexpectedInput {
+        expected_next_literal: String,
+        remaining_text: String,
     },
     /// A generic parse error message aggregated from the parser.
     #[error("Parse error: {0}")]

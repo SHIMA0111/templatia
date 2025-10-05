@@ -108,6 +108,17 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         }
     };
 
+    let marker_input = format!("{}::{}", name.to_string(), template);
+    let hash = {
+        use std::hash::{DefaultHasher, Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        marker_input.hash(&mut hasher);
+
+        hasher.finish()
+    };
+    let escaped_colon_marker = format!("<escaped_colon_templatia_{:x}>", hash);
+
     let allow_missing_placeholders = opts.allow_missing_placeholders.is_present();
     let empty_str_as_none = opts.empty_str_option_not_none.is_present();
 
@@ -169,6 +180,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
             }
         })
         .collect::<HashSet<_>>();
+
     let str_from_parser = generate_str_parser(
         name,
         all_fields,
@@ -176,6 +188,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         &segments,
         allow_missing_placeholders,
         !empty_str_as_none,
+        &escaped_colon_marker,
     );
 
     // Generate trait bound
@@ -232,6 +245,8 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         quote! { #new_where_clause }
     };
 
+    let replace_escaped_to_colon = quote! { replace(#escaped_colon_marker, ":") };
+
     quote! {
         impl #impl_generics ::templatia::Template for #name #ty_generics #where_clause {
             type Error = templatia::TemplateError;
@@ -249,19 +264,44 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
                     Err(errs) => {
                         for err in &errs {
                             if let ::templatia::__private::chumsky::error::RichReason::Custom(msg) = err.reason() {
-                            let m = msg.to_string();
-                            const PFX: &str = "__templatia_conflict__:";
-                            if let Some(rest) = m.strip_prefix(PFX) {
-                                if let Some((placeholder, rest)) = rest.split_once("::") {
-                                    if let Some((first_value, second_value)) = rest.split_once("::") {
-                                        return Err(templatia::TemplateError::InconsistentValues {
-                                            placeholder: placeholder.to_string(),
-                                            first_value: first_value.to_string(),
-                                            second_value: second_value.to_string(),
-                                        });
+                                let m = msg.to_string();
+                                const PFX_CONFLICT: &str = "__templatia_conflict__:";
+                                const PFX_PARSE: &str = "__templatia_parse_type__:";
+                                const PFX_PARSE_LITERAL: &str = "__templatia_parse_literal__:";
+                                if let Some(rest) = m.strip_prefix(PFX_CONFLICT) {
+                                    if let Some((placeholder, rest)) = rest.split_once("::") {
+                                        if let Some((first_value, second_value)) = rest.split_once("::") {
+                                            return Err(::templatia::TemplateError::InconsistentValues {
+                                                placeholder: placeholder.#replace_escaped_to_colon.to_string(),
+                                                first_value: first_value.#replace_escaped_to_colon.to_string(),
+                                                second_value: second_value.#replace_escaped_to_colon.to_string(),
+                                            });
+                                        }
+                                    }
+                                } else if let Some(rest) = m.strip_prefix(PFX_PARSE) {
+                                    if let Some((placeholder, rest)) = rest.split_once("::") {
+                                        if let Some((value, ty)) = rest.split_once("::") {
+                                            return Err(::templatia::TemplateError::ParseToType {
+                                                placeholder: placeholder.#replace_escaped_to_colon.to_string(),
+                                                value: value.#replace_escaped_to_colon.to_string(),
+                                                type_name: ty.#replace_escaped_to_colon.to_string(),
+                                            })
+                                        }
+                                    }
+                                } else if let Some(rest) = m.strip_prefix(PFX_PARSE_LITERAL) {
+                                    if let Some((expected, got)) = rest.split_once("::") {
+                                        let expected_next_literal = expected.trim_matches('"')
+                                            .#replace_escaped_to_colon
+                                            .to_string();
+                                        let remaining_text = got.#replace_escaped_to_colon.to_string();
+
+                                        return Err(::templatia::TemplateError::UnexpectedInput {
+                                            expected_next_literal,
+                                            remaining_text,
+                                        })
                                     }
                                 }
-                            }}
+                            }
                         }
 
                         let error_message = errs.into_iter()
