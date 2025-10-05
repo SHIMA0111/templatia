@@ -355,8 +355,10 @@ mod error_handling_tests {
         let result = PortConfig::from_str("port=not_a_number");
         
         match result {
-            Err(TemplateError::Parse(msg)) => {
-                assert!(msg.contains("Failed to parse field \"port\""));
+            Err(TemplateError::ParseToType { placeholder, value, type_name }) => {
+                assert_eq!(placeholder, "port");
+                assert_eq!(value, "not_a_number");
+                assert_eq!(type_name, "u16");
             }
             other => panic!("Expected Parse error, got: {other:?}"),
         }
@@ -373,8 +375,10 @@ mod error_handling_tests {
         let result = BoolConfig::from_str("enabled=maybe");
         
         match result {
-            Err(TemplateError::Parse(msg)) => {
-                assert!(msg.contains("Failed to parse field \"enabled\""));
+            Err(TemplateError::ParseToType { placeholder, value, type_name }) => {
+                assert_eq!(placeholder, "enabled");
+                assert_eq!(value, "maybe");
+                assert_eq!(type_name, "bool");
             }
             other => panic!("Expected Parse error, got: {other:?}"),
         }
@@ -391,8 +395,10 @@ mod error_handling_tests {
         let result = OverflowTest::from_str("value=256");
         
         match result {
-            Err(TemplateError::Parse(_)) => {
-                // Expected - overflow should cause parse error
+            Err(TemplateError::ParseToType{ placeholder, value, type_name }) => {
+                assert_eq!(placeholder, "value");
+                assert_eq!(value, "256");
+                assert_eq!(type_name, "u8");
             }
             other => panic!("Expected Parse error for overflow, got: {other:?}"),
         }
@@ -409,8 +415,10 @@ mod error_handling_tests {
         let result = UnsignedTest::from_str("count=-1");
         
         match result {
-            Err(TemplateError::Parse(_)) => {
-                // Expected - negative value for unsigned type should fail
+            Err(TemplateError::ParseToType{ placeholder, value, type_name }) => {
+                assert_eq!(placeholder, "count");
+                assert_eq!(value, "-1");
+                assert_eq!(type_name, "u32");
             }
             other => panic!("Expected Parse error for negative unsigned, got: {other:?}"),
         }
@@ -429,8 +437,9 @@ mod error_handling_tests {
         let result = HostPort::from_str("host=localhost 8080");
         
         match result {
-            Err(TemplateError::Parse(_)) => {
-                // Expected - template doesn't match expected format
+            Err(TemplateError::UnexpectedInput { expected_next_literal, remaining_text }) => {
+                assert_eq!(expected_next_literal, ":");
+                assert_eq!(remaining_text, "localhost 8080");
             }
             other => panic!("Expected Parse error for malformed template, got: {other:?}"),
         }
@@ -448,8 +457,9 @@ mod error_handling_tests {
         let result = PrefixSuffix::from_str("prefix_test");
         
         match result {
-            Err(TemplateError::Parse(_)) => {
-                // Expected - incomplete template match
+            Err(TemplateError::UnexpectedInput { expected_next_literal, remaining_text }) => {
+                assert_eq!(expected_next_literal, "_suffix");
+                assert_eq!(remaining_text, "test");
             }
             other => panic!("Expected Parse error for partial match, got: {other:?}"),
         }

@@ -249,19 +249,40 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
                     Err(errs) => {
                         for err in &errs {
                             if let ::templatia::__private::chumsky::error::RichReason::Custom(msg) = err.reason() {
-                            let m = msg.to_string();
-                            const PFX: &str = "__templatia_conflict__:";
-                            if let Some(rest) = m.strip_prefix(PFX) {
-                                if let Some((placeholder, rest)) = rest.split_once("::") {
-                                    if let Some((first_value, second_value)) = rest.split_once("::") {
-                                        return Err(templatia::TemplateError::InconsistentValues {
-                                            placeholder: placeholder.to_string(),
-                                            first_value: first_value.to_string(),
-                                            second_value: second_value.to_string(),
-                                        });
+                                let m = msg.to_string();
+                                const PFX_CONFLICT: &str = "__templatia_conflict__:";
+                                const PFX_PARSE: &str = "__templatia_parse_type__:";
+                                const PFX_PARSE_LITERAL: &str = "__templatia_parse_literal__:";
+                                if let Some(rest) = m.strip_prefix(PFX_CONFLICT) {
+                                    if let Some((placeholder, rest)) = rest.split_once("::") {
+                                        if let Some((first_value, second_value)) = rest.split_once("::") {
+                                            return Err(::templatia::TemplateError::InconsistentValues {
+                                                placeholder: placeholder.to_string(),
+                                                first_value: first_value.to_string(),
+                                                second_value: second_value.to_string(),
+                                            });
+                                        }
+                                    }
+                                } else if let Some(rest) = m.strip_prefix(PFX_PARSE) {
+                                    if let Some((placeholder, rest)) = rest.split_once("::") {
+                                        if let Some((value, ty)) = rest.split_once("::") {
+                                            return Err(::templatia::TemplateError::ParseToType {
+                                                placeholder: placeholder.to_string(),
+                                                value: value.to_string(),
+                                                type_name: ty.to_string(),
+                                            })
+                                        }
+                                    }
+                                } else if let Some(rest) = m.strip_prefix(PFX_PARSE_LITERAL) {
+                                    if let Some((expected, got)) = rest.split_once("::") {
+                                        let expected_next_literal = expected.trim_matches('"').to_string();
+                                        return Err(::templatia::TemplateError::UnexpectedInput {
+                                            expected_next_literal,
+                                            remaining_text: got.to_string(),
+                                        })
                                     }
                                 }
-                            }}
+                            }
                         }
 
                         let error_message = errs.into_iter()
