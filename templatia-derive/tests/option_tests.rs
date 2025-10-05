@@ -484,8 +484,10 @@ mod option_error_tests {
         let result = OptionalPort::from_str("port=invalid");
         match result {
             Ok(_) => panic!("Expected Parse error, got Ok"),
-            Err(TemplateError::Parse(msg)) => {
-                assert!(msg.contains("Failed to parse field \"port\""));
+            Err(TemplateError::ParseToType{ placeholder, value, type_name }) => {
+                assert_eq!(placeholder, "port");
+                assert_eq!(value, "invalid");
+                assert_eq!(type_name, "Option<u16>");
             }
             other => panic!("Expected Parse error, got: {other:?}"),
         }
@@ -502,8 +504,10 @@ mod option_error_tests {
         let result = OptionalFlag::from_str("flag=maybe");
         
         match result {
-            Err(TemplateError::Parse(msg)) => {
-                assert!(msg.contains("Failed to parse field \"flag\""));
+            Err(TemplateError::ParseToType{ placeholder, value, type_name }) => {
+                assert_eq!(placeholder, "flag");
+                assert_eq!(value, "maybe");
+                assert_eq!(type_name, "Option<bool>");
             }
             other => panic!("Expected Parse error, got: {other:?}"),
         }

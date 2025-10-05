@@ -169,6 +169,8 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
             }
         })
         .collect::<HashSet<_>>();
+    
+    let escaped_colon_marker = format!("<escaped_colon_rich_{}>", uuid::Uuid::new_v4().simple());
     let str_from_parser = generate_str_parser(
         name,
         all_fields,
@@ -176,6 +178,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         &segments,
         allow_missing_placeholders,
         !empty_str_as_none,
+        escaped_colon_marker.as_str(),
     );
 
     // Generate trait bound
@@ -257,9 +260,9 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
                                     if let Some((placeholder, rest)) = rest.split_once("::") {
                                         if let Some((first_value, second_value)) = rest.split_once("::") {
                                             return Err(::templatia::TemplateError::InconsistentValues {
-                                                placeholder: placeholder.to_string(),
-                                                first_value: first_value.to_string(),
-                                                second_value: second_value.to_string(),
+                                                placeholder: placeholder.replace(#escaped_colon_marker, ":").to_string(),
+                                                first_value: first_value.replace(#escaped_colon_marker, ":").to_string(),
+                                                second_value: second_value.replace(#escaped_colon_marker, ":").to_string()
                                             });
                                         }
                                     }
@@ -267,18 +270,21 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
                                     if let Some((placeholder, rest)) = rest.split_once("::") {
                                         if let Some((value, ty)) = rest.split_once("::") {
                                             return Err(::templatia::TemplateError::ParseToType {
-                                                placeholder: placeholder.to_string(),
-                                                value: value.to_string(),
-                                                type_name: ty.to_string(),
+                                                placeholder: placeholder.replace(#escaped_colon_marker, ":").to_string(),
+                                                value: value.replace(#escaped_colon_marker, ":").to_string(),
+                                                type_name: ty.replace(#escaped_colon_marker, ":").to_string(),
                                             })
                                         }
                                     }
                                 } else if let Some(rest) = m.strip_prefix(PFX_PARSE_LITERAL) {
                                     if let Some((expected, got)) = rest.split_once("::") {
-                                        let expected_next_literal = expected.trim_matches('"').to_string();
+                                        let expected_next_literal = expected.trim_matches('"')
+                                            .replace(#escaped_colon_marker, ":")
+                                            .to_string();
+                                        let remaining_text = got.replace(#escaped_colon_marker, ":").to_string();
                                         return Err(::templatia::TemplateError::UnexpectedInput {
                                             expected_next_literal,
-                                            remaining_text: got.to_string(),
+                                            remaining_text,
                                         })
                                     }
                                 }
