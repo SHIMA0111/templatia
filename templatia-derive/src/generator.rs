@@ -95,6 +95,9 @@ pub(crate) fn generate_str_parser(
                                     if #last_literal_count > 0 {
                                         let found_lit = s.match_indices(#last_literal_parsed).collect::<Vec<_>>();
                                         // SAFETY: In this branch, the last_literal_count is always 1 or more. So, the #last_literal_count - 1 is always converted to usize.
+                                        // Also, the last_literal_parsed and last_literal_count indicate **last**, so in this branch executed,
+                                        // the last literal is parsed, so the index(last_literal_count - 1) is always less than the length of the s.match_indices(#last_literal_parsed).collect::<Vec<_>>().
+                                        // Therefore, the following code never causes an out-of-range panic.
                                         let (last_indices, _) = found_lit[(#last_literal_count - 1) as usize];
                                         last_indices + #last_literal_parsed.len()
                                     } else {
@@ -430,7 +433,7 @@ fn generate_extract_as_str_parser(
                             // if this parser is on another place, the consecutive placeholder cannot be parsed.
                             ::templatia::__private::chumsky::prelude::any::<&str, ::templatia::__private::chumsky::extra::Err<::templatia::__private::chumsky::error::Rich<char>>>()
                                 .repeated()
-                                // If the field is bool, the max length is 5 so the repeated is at_most(5). Anyway, this parser is called; the parse always fails.
+                                // If the field is bool, the max length is 5 so the repeated is at_most(5). Anyway, this parser is called; the following type parse always fails.
                                 .at_most(5)
                                 .to_slice(),
                         ))
