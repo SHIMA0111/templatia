@@ -30,16 +30,20 @@ mod generator;
 mod parser;
 mod validator;
 mod utils;
+mod inv;
+pub(crate) mod fields;
+mod render;
 
 use crate::generator::generate_str_parser;
-use crate::parser::{TemplateSegments, parse_template};
-use darling::{FromDeriveInput};
+use crate::parser::{parse_template, TemplateSegments};
+use darling::FromDeriveInput;
 use darling::util::{Flag, Override};
 use proc_macro::TokenStream;
 use quote::quote;
 use std::collections::HashSet;
-use syn::{DeriveInput, parse_macro_input};
-use crate::utils::get_inner_type_from_option;
+use syn::{parse_macro_input, DeriveInput};
+use crate::fields::{FieldKind, Fields};
+use crate::render::generate_format_string_args;
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(templatia), supports(struct_named))]
@@ -129,10 +133,12 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         unreachable!()
     };
 
-    let optional_fields = all_fields
+    let fields = Fields::new(all_fields);
+    
+    let option_fields = fields
+        .option_fields()
         .iter()
-        .filter(|f| get_inner_type_from_option(&f.ty).is_some())
-        .filter_map(|f| f.ident.as_ref())
+        .map(|(ident, _)| *ident)
         .collect::<HashSet<_>>();
 
     let segments = match parse_template(&template) {
@@ -145,29 +151,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         }
     };
 
-    // Generate format string like "key = {}, key2 = {}"
-    let format_string = segments
-        .iter()
-        .map(|segment| match segment {
-            TemplateSegments::Literal(lit) => lit.replace("{", "{{").replace("}", "}}"),
-            TemplateSegments::Placeholder(_) => "{}".to_string(),
-        })
-        // This collect works because the String implements FromIterator.
-        .collect::<String>();
-
-    // Generate code for placeholder completion the format_string it used the self keys
-    let format_args = segments.iter().filter_map(|segment| match segment {
-        TemplateSegments::Placeholder(name) => {
-            let field_ident =  syn::Ident::new(name, proc_macro2::Span::call_site());
-
-            if optional_fields.contains(&field_ident) {
-                Some(quote! { &self.#field_ident.as_ref().map(|v| v.to_string()).unwrap_or("".to_string()) })
-            } else {
-                Some(quote! { &self.#field_ident })
-            }
-        }
-        TemplateSegments::Literal(_) => None,
-    });
+    let (format_string, format_args) = generate_format_string_args(&segments, &option_fields);
 
     // Gathering the all placeholder name without duplication
     let placeholder_names = segments
@@ -183,7 +167,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
 
     let str_from_parser = generate_str_parser(
         name,
-        all_fields,
+        &fields,
         &placeholder_names,
         &segments,
         allow_missing_placeholders,
@@ -194,48 +178,42 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
     // Generate trait bound
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
 
-    let used_fields = all_fields
-        .iter()
-        .filter(|field| {
-            if let Some(ident) = &field.ident {
-                placeholder_names.contains(&ident.to_string())
-            } else {
-                false
-            }
-        })
-        .collect::<Vec<_>>();
-
     let mut new_where_clause = where_clause
         .cloned()
         .unwrap_or_else(|| syn::parse_quote! { where });
 
-    for field in used_fields {
-        let field_ty = &field.ty;
+    for field in fields.used_fields_in_template(&placeholder_names) {
         if !new_where_clause.predicates.is_empty() {
             // push_punct adds a comma between predicates.
             new_where_clause.predicates.push_punct(Default::default());
         }
-
-        if let Some(inner_type) = get_inner_type_from_option(field_ty) {
-            new_where_clause.predicates.push(syn::parse_quote! {
-                #inner_type: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq
-            });
-            new_where_clause.predicates.push(syn::parse_quote! {
-                <#inner_type as ::std::str::FromStr>::Err: ::std::fmt::Display
-            });
-        } else {
-            if !allow_missing_placeholders {
-                new_where_clause.predicates.push(syn::parse_quote! {
-                    #field_ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq
-                });
-            } else {
-                new_where_clause.predicates.push(syn::parse_quote! {
-                    #field_ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq + ::std::default::Default
-                });
+        
+        if let Some(ident) = field.ident.as_ref() {
+            match fields.get_field_kind(ident) {
+                Some(FieldKind::Option(ty)) => {
+                    new_where_clause.predicates.push(syn::parse_quote! {
+                        #ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq
+                    });
+                            new_where_clause.predicates.push(syn::parse_quote! {
+                        <#ty as ::std::str::FromStr>::Err: ::std::fmt::Display
+                    });
+                },
+                Some(FieldKind::Primitive(ty)) => {
+                    if !allow_missing_placeholders {
+                        new_where_clause.predicates.push(syn::parse_quote! {
+                            #ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq
+                        });
+                    } else {
+                        new_where_clause.predicates.push(syn::parse_quote! {
+                            #ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq + ::std::default::Default
+                        });
+                    }
+                    new_where_clause.predicates.push(syn::parse_quote! {
+                        <#ty as ::std::str::FromStr>::Err: ::std::fmt::Display
+                    });
+                },
+                _ => return syn::Error::new_spanned(field, "Unsupported field type").to_compile_error().into(),
             }
-            new_where_clause.predicates.push(syn::parse_quote! {
-                <#field_ty as ::std::str::FromStr>::Err: ::std::fmt::Display
-            });
         }
     }
 
@@ -256,7 +234,9 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
             }
 
             fn from_str(s: &str) -> Result<Self, Self::Error> {
+                use ::templatia::__private::chumsky;
                 use ::templatia::__private::chumsky::Parser;
+                use ::templatia::__private::chumsky::prelude::*;
 
                 let parser = #str_from_parser;
                 match parser.parse(s).into_result() {
