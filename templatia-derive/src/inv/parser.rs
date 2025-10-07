@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use quote::quote;
-use crate::inv::error::generate_compile_error;
+use crate::error::{generate_compile_error, generate_unsupported_compile_error};
 use crate::fields::{FieldKind, Fields};
 use crate::parser::TemplateSegments;
 use crate::utils::get_type_name;
@@ -186,15 +186,7 @@ fn generate_field_parser(
             }
         },
         _ => {
-            let error = syn::Error::new(
-                proc_macro2::Span::call_site(),
-                format!(
-                    "{} is currently not supported",
-                    field_name.to_string(),
-                )
-            );
-
-            error.to_compile_error().into()
+            generate_unsupported_compile_error(field_name, field_type)
         }
     }
 }

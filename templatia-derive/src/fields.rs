@@ -7,8 +7,11 @@ pub(crate) enum FieldKind<'a> {
     Primitive(&'a syn::Type),
     Option(&'a syn::Type),
     Result(&'a syn::Type, &'a syn::Type),
-    Collection(&'a syn::Type),
-    KVCollection(&'a syn::Type, &'a syn::Type),
+    Vec(&'a syn::Type),
+    HashSet(&'a syn::Type),
+    BTreeSet(&'a syn::Type),
+    HashMap(&'a syn::Type, &'a syn::Type),
+    BTreeMap(&'a syn::Type, &'a syn::Type),
     Tuple,
     Unknown,
 }
@@ -120,26 +123,46 @@ fn analyze_fields(fields: &'_ [syn::Field]) -> HashMap<&'_ syn::Ident, FieldKind
                                             continue;
                                         }
                                     }
-                                    result.insert(field.ident.as_ref().unwrap(), FieldKind::Unknown);
                                 },
-                                "Vec" | "HashSet" | "BTreeSet" => {
-                                    // Vec<T>, HashSet<T>, BTreeSet<T> has only one argument which is T.
+                                "Vec" => {
                                     if args.args.len() == 1 {
                                         if let Some(GenericArgument::Type(ty)) = args.args.first() {
-                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::Collection(ty));
+                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::Vec(ty));
                                             continue;
                                         }
                                     }
-                                    result.insert(field.ident.as_ref().unwrap(), FieldKind::Unknown);
                                 },
-                                "HashMap" | "BTreeMap" => {
+                                "HashSet" => {
+                                    if args.args.len() == 1 {
+                                        if let Some(GenericArgument::Type(ty)) = args.args.first() {
+                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::HashSet(ty));
+                                            continue;
+                                        }
+                                    }
+                                }, 
+                                "BTreeSet" => {
+                                    if args.args.len() == 1 {
+                                        if let Some(GenericArgument::Type(ty)) = args.args.first() {
+                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::BTreeSet(ty));
+                                            continue;
+                                        }
+                                    }
+                                },
+                                "HashMap" => {
                                     if args.args.len() == 2 {
                                         if let (Some(GenericArgument::Type(key_ty)), Some(GenericArgument::Type(value_ty))) = (args.args.first(), args.args.last()) {
-                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::KVCollection(key_ty, value_ty));
+                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::HashMap(key_ty, value_ty));
                                             continue;
                                         }
                                     }
-                                    result.insert(field.ident.as_ref().unwrap(), FieldKind::Unknown);
+                                },
+                                "BTreeMap" => {
+                                    if args.args.len() == 2 {
+                                        if let (Some(GenericArgument::Type(key_ty)), Some(GenericArgument::Type(value_ty))) = (args.args.first(), args.args.last()) {
+                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::BTreeMap(key_ty, value_ty));
+                                            continue;
+                                        }
+                                    }
                                 },
                                 "Result" => {
                                     if args.args.len() == 2 {
@@ -147,13 +170,11 @@ fn analyze_fields(fields: &'_ [syn::Field]) -> HashMap<&'_ syn::Ident, FieldKind
                                             result.insert(field.ident.as_ref().unwrap(), FieldKind::Result(ok_ty, err_ty));
                                             continue;
                                         }
-                                        result.insert(field.ident.as_ref().unwrap(), FieldKind::Unknown);
                                     }
                                 },
-                                _ => {
-                                    result.insert(field.ident.as_ref().unwrap(), FieldKind::Unknown);
-                                }
+                                _ => {}
                             }
+                            result.insert(field.ident.as_ref().unwrap(), FieldKind::Unknown);
                         },
                         syn::PathArguments::None => {
                             result.insert(field.ident.as_ref().unwrap(), FieldKind::Primitive(&field.ty));

@@ -33,6 +33,7 @@ mod utils;
 mod inv;
 pub(crate) mod fields;
 mod render;
+pub(crate) mod error;
 
 use crate::generator::generate_str_parser;
 use crate::parser::{parse_template, TemplateSegments};
@@ -42,6 +43,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use std::collections::HashSet;
 use syn::{parse_macro_input, DeriveInput};
+use crate::error::generate_unsupported_compile_error;
 use crate::fields::{FieldKind, Fields};
 use crate::render::generate_format_string_args;
 
@@ -212,7 +214,8 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
                         <#ty as ::std::str::FromStr>::Err: ::std::fmt::Display
                     });
                 },
-                _ => return syn::Error::new_spanned(field, "Unsupported field type").to_compile_error().into(),
+                Some(kind) => return generate_unsupported_compile_error(ident, kind).into(),
+                None => return generate_unsupported_compile_error(ident, &FieldKind::Unknown).into(),
             }
         }
     }
