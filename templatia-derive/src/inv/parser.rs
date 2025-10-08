@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 use quote::quote;
-use crate::error::{generate_compile_error, generate_unsupported_compile_error};
+use crate::error::generate_unsupported_compile_error;
 use crate::fields::{FieldKind, Fields};
 use crate::parser::TemplateSegments;
 use crate::utils::get_type_name;
 
 pub(crate) fn generate_parser_from_segments(
-    struct_name: &syn::Ident,
     segments: &[TemplateSegments],
     fields: &Fields,
     empty_str_as_none: bool,
@@ -80,18 +79,9 @@ pub(crate) fn generate_parser_from_segments(
             TemplateSegments::Placeholder(placeholder) => {
                 let name_ident = syn::Ident::new(&placeholder, proc_macro2::Span::call_site());
 
-                // In the internal implementation of the inv::fields::Fields, the placeholder is valid;
-                // then the get_field_kind returns Some.
-                let field_kind = match fields.get_field_kind(&name_ident) {
-                    Some(kind) => kind,
-                    None => return generate_compile_error(
-                        &format!(
-                            "{} has no field named \"{}\"",
-                            struct_name, placeholder
-                        )
-                    )
-                };
-
+                // SAFETY: The placeholder is always in the fields because in the first of the generate_str_parser,
+                // the placeholder is checked if it is in the fields.
+                let field_kind = fields.get_field_kind(&name_ident).unwrap();
 
                 let field_parser = generate_field_parser(
                     &name_ident,

@@ -1,9 +1,10 @@
 use crate::parser::TemplateSegments;
 use quote::quote;
 use std::collections::{HashMap, HashSet};
+use crate::error::generate_not_found_placeholder_compile_error;
 use crate::fields::Fields;
 use crate::inv::parser::generate_parser_from_segments;
-use crate::validator::validate_template_safety;
+use crate::inv::validator::validate_template_safety;
 
 pub(crate) fn generate_str_parser(
     struct_name: &syn::Ident,
@@ -16,37 +17,22 @@ pub(crate) fn generate_str_parser(
 ) -> proc_macro2::TokenStream {
     for name in placeholder_names {
         if !fields.field_names().contains(name) {
-            let error = syn::Error::new(
-                proc_macro2::Span::call_site(),
-                format!(
-                    "{} has no field named \"{}\"",
-                    struct_name.to_string(),
-                    name
-                ),
-            );
-
-            return error.to_compile_error().into();
+            return generate_not_found_placeholder_compile_error(struct_name.to_string().as_str(), name);
         }
     }
 
     if let Err(e) = validate_template_safety(segments, fields) {
-        let error = syn::Error::new(
-            proc_macro2::Span::call_site(),
-            format!("{}: {}", struct_name.to_string(), e),
-        );
-
-        return error.to_compile_error().into();
+        return e;
     }
 
     let replace_colon = quote! { replace(":", #escaped_colon_marker) };
     let generated_full_parser = generate_parser_from_segments(
-        struct_name,
         segments,
         &fields,
         empty_str_as_none,
         &replace_colon,
     );
-    
+
     let field_names = segments
         .iter()
         .filter_map(|segment| match segment {

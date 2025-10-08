@@ -1,4 +1,4 @@
-error: unsupported type field: res has a Result<i32, String> type. currently, Result<i32, String> is not supported.
+error: unsupported type field: res has a Result<i32, String> type. currently, Result<i32, String> is not supported
  --> tests/compile_fail/unsupported_result.rs:3:10
   |
 3 | #[derive(Template)]

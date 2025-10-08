@@ -1,4 +1,4 @@
-error: BadConsecutive: Placeholder "first" and "second" are consecutive. These are ambiguous to parsing.
+error: placeholder "first" and "second" are consecutive. these cause ambiguity to parsing bound.
        "first" is `String` type data. Consecutive allows only: [char, bool]
  --> tests/compile_fail/consecutive_disallowed.rs:3:10
   |

@@ -1,4 +1,4 @@
-error: unsupported type field: vals has a tuple type. currently, tuple is not supported.
+error: unsupported type field: vals has a tuple type. currently, tuple is not supported
  --> tests/compile_fail/unsupported_tuple.rs:3:10
   |
 3 | #[derive(Template)]

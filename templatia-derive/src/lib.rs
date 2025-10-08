@@ -26,16 +26,14 @@
 //!
 //! For detailed usage examples and comprehensive documentation, see the main `templatia` crate.
 
-mod generator;
 mod parser;
-mod validator;
 mod utils;
 mod inv;
 pub(crate) mod fields;
 mod render;
 pub(crate) mod error;
 
-use crate::generator::generate_str_parser;
+use inv::generator::generate_str_parser;
 use crate::parser::{parse_template, TemplateSegments};
 use darling::FromDeriveInput;
 use darling::util::{Flag, Override};

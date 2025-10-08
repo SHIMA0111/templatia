@@ -1,8 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use syn::GenericArgument;
 
-// TODO: Add support for Result<T, E>, Collection<T>, KVCollection<K, V>
-#[allow(dead_code)]
 pub(crate) enum FieldKind<'a> {
     Primitive(&'a syn::Type),
     Option(&'a syn::Type),
@@ -13,7 +11,7 @@ pub(crate) enum FieldKind<'a> {
     HashMap(&'a syn::Type, &'a syn::Type),
     BTreeMap(&'a syn::Type, &'a syn::Type),
     Tuple,
-    Unknown,
+    Unknown ,
 }
 
 pub(crate) struct Fields<'a> {
@@ -28,7 +26,7 @@ impl<'a> Fields<'a> {
         Self { fields, idents_type }
     }
 
-    pub(crate) fn get_type_kind_by_name(&'_ self, name: &str) -> Option<&'_ FieldKind<'_>> {
+    pub(crate) fn get_type_kind_by_name(&'_ self, name: &str) -> Option<&FieldKind<'_>> {
         let name = proc_macro2::Ident::new(name, proc_macro2::Span::call_site());
         self.idents_type.get(&name)
     }
@@ -46,7 +44,7 @@ impl<'a> Fields<'a> {
             .collect::<Vec<_>>()
     }
 
-    pub(crate) fn get_field_kind(&'_ self, ident: &syn::Ident) -> Option<&'_ FieldKind<'_>> {
+    pub(crate) fn get_field_kind(&'_ self, ident: &syn::Ident) -> Option<&FieldKind<'_>> {
         self.idents_type.get(ident)
     }
 
@@ -103,7 +101,7 @@ fn analyze_fields(fields: &'_ [syn::Field]) -> HashMap<&'_ syn::Ident, FieldKind
     let mut result = HashMap::new();
 
     for field in fields {
-        // If the field is not named, skip it. Currently only named fields are supported.
+        // If the field is not named, skip it. Currently, only named fields are supported.
         if field.ident.is_none() {
             continue;
         }
@@ -139,7 +137,7 @@ fn analyze_fields(fields: &'_ [syn::Field]) -> HashMap<&'_ syn::Ident, FieldKind
                                             continue;
                                         }
                                     }
-                                }, 
+                                },
                                 "BTreeSet" => {
                                     if args.args.len() == 1 {
                                         if let Some(GenericArgument::Type(ty)) = args.args.first() {

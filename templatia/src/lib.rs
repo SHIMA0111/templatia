@@ -17,7 +17,7 @@
 //! Add templatia to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! templatia = { version = "0.0.1", features = ["derive"] }
+//! templatia = { version = "0.0.3", features = ["derive"] }
 //! ```
 //!
 //! ### Using the Derive Macro (Recommended)

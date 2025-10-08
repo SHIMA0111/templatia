@@ -1,4 +1,4 @@
-error: unsupported type field: map has a HashMap<String, i32> type. currently, HashMap<String, i32> is not supported.
+error: unsupported type field: map has a HashMap<String, i32> type. currently, HashMap<String, i32> is not supported
  --> tests/compile_fail/unsupported_map.rs:4:10
   |
 4 | #[derive(Template)]

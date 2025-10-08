@@ -1,4 +1,4 @@
-error: unsupported type field: items has a Vec<String> type. currently, Vec<String> is not supported.
+error: unsupported type field: items has a Vec<String> type. currently, Vec<String> is not supported
  --> tests/compile_fail/unsupported_collection.rs:3:10
   |
 3 | #[derive(Template)]
