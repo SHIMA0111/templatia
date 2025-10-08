@@ -134,7 +134,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
     };
 
     let fields = Fields::new(all_fields);
-    
+
     let option_fields = fields
         .option_fields()
         .iter()
@@ -183,11 +183,6 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         .unwrap_or_else(|| syn::parse_quote! { where });
 
     for field in fields.used_fields_in_template(&placeholder_names) {
-        if !new_where_clause.predicates.is_empty() {
-            // push_punct adds a comma between predicates.
-            new_where_clause.predicates.push_punct(Default::default());
-        }
-        
         if let Some(ident) = field.ident.as_ref() {
             match fields.get_field_kind(ident) {
                 Some(FieldKind::Option(ty)) => {
