@@ -121,6 +121,7 @@ fn generate_field_parser(
         _ => None,
     };
 
+    let field_type_str = field_type.to_string();
     match field_type {
         FieldKind::Option(ty) => {
             let is_string_type = matches!(
@@ -138,15 +139,13 @@ fn generate_field_parser(
                             s.parse::<#ty>()
                                 .map(Some)
                                 .map_err(|_| {
-                                    let op_type = format!("Option<{}>", stringify!(#ty));
-
                                     chumsky::error::Rich::<char>::custom(
                                         span,
                                         format!(
                                             "__templatia_parse_type__:{}::{}::{}",
                                             stringify!(#field_name).#colon_escaper,
                                             s.#colon_escaper,
-                                            op_type.#colon_escaper,
+                                            #field_type_str.#colon_escaper,
                                         )
                                     )
                                 })
@@ -168,7 +167,7 @@ fn generate_field_parser(
                                         "__templatia_parse_type__:{}::{}::{}",
                                         stringify!(#field_name).#colon_escaper,
                                         s.#colon_escaper,
-                                        stringify!(#ty).#colon_escaper,
+                                        #field_type_str.#colon_escaper,
                                     )
                                 )
                             })

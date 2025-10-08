@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
 use syn::GenericArgument;
+use crate::utils::get_type_name;
 
 pub(crate) enum FieldKind<'a> {
     Primitive(&'a syn::Type),
@@ -12,6 +14,23 @@ pub(crate) enum FieldKind<'a> {
     BTreeMap(&'a syn::Type, &'a syn::Type),
     Tuple,
     Unknown ,
+}
+
+impl Display for FieldKind<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FieldKind::Primitive(ty) => write!(f, "{}", get_type_name(ty)),
+            FieldKind::Option(ty) => write!(f, "Option<{}>", get_type_name(ty)),
+            FieldKind::Result(ok_ty, err_ty) => write!(f, "Result<{}, {}>", get_type_name(ok_ty), get_type_name(err_ty)),
+            FieldKind::Vec(ty) => write!(f, "Vec<{}>", get_type_name(ty)),
+            FieldKind::HashSet(ty) => write!(f, "HashMap<{}>", get_type_name(ty)),
+            FieldKind::BTreeSet(ty) => write!(f, "BTreeSet<{}>", get_type_name(ty)),
+            FieldKind::HashMap(k_ty, v_ty) => write!(f, "HashMap<{}, {}>", get_type_name(k_ty), get_type_name(v_ty)),
+            FieldKind::BTreeMap(k_ty, v_ty) => write!(f, "BTreeMap<{}, {}>", get_type_name(k_ty), get_type_name(v_ty)),
+            FieldKind::Tuple => write!(f, "(<tuple>)"),
+            FieldKind::Unknown => write!(f, "<unknown>"),
+        }
+    }
 }
 
 pub(crate) struct Fields<'a> {
