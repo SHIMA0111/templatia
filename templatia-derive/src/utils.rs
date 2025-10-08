@@ -19,9 +19,9 @@ pub(crate) fn get_type_name(ty: &syn::Type) -> String {
             if let Some(ident) = &path.path.get_ident() {
                 ident.to_string()
             } else {
-                "cannot_recognized".to_string()
+                "unrecognized".to_string()
             }
         },
-        _ => "cannot_recognized".to_string(),
+        _ => "unrecognized".to_string(),
     }
 }
