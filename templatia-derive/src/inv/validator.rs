@@ -17,7 +17,7 @@ pub(crate) fn validate_template_safety(
                 Some(FieldKind::Primitive(ty)) => {
                     (is_allowed_consecutive_allowed_type(ty), get_type_name(ty))
                 },
-                _ => (false, "unknown_type".to_string()),
+                _ => (false, "unrecognized".to_string()),
             };
 
             if !allowed_consecutive {
