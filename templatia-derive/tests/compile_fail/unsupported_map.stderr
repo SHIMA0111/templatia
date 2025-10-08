@@ -1,0 +1,13 @@
+error: unsupported type field: map has a HashMap<String, i32> type. currently, HashMap<String, i32> is not supported
+ --> tests/compile_fail/unsupported_map.rs:4:10
+  |
+4 | #[derive(Template)]
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `Template` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0601]: `main` function not found in crate `$CRATE`
+ --> tests/compile_fail/unsupported_map.rs:8:2
+  |
+8 | }
+  |  ^ consider adding a `main` function to `$DIR/tests/compile_fail/unsupported_map.rs`
