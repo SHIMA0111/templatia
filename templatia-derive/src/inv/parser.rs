@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-use quote::quote;
 use crate::error::generate_unsupported_compile_error;
 use crate::fields::{FieldKind, Fields};
 use crate::parser::TemplateSegments;
 use crate::utils::get_type_name;
+use quote::quote;
+use std::collections::HashMap;
 
 pub(crate) fn generate_parser_from_segments(
     segments: &[TemplateSegments],
@@ -75,9 +75,9 @@ pub(crate) fn generate_parser_from_segments(
                 latest_segment_was_literal = true;
                 last_literal_parsed = lit;
                 last_literal_count = count;
-            },
+            }
             TemplateSegments::Placeholder(placeholder) => {
-                let name_ident = syn::Ident::new(&placeholder, proc_macro2::Span::call_site());
+                let name_ident = syn::Ident::new(placeholder, proc_macro2::Span::call_site());
 
                 // SAFETY: The placeholder is always in the fields because in the first of the generate_str_parser,
                 // the placeholder is checked if it is in the fields.
@@ -124,10 +124,8 @@ fn generate_field_parser(
     let field_type_str = field_type.to_string();
     match field_type {
         FieldKind::Option(ty) => {
-            let is_string_type = matches!(
-                get_type_name(ty).to_lowercase().as_str(),
-                "string" | "str"
-            );
+            let is_string_type =
+                matches!(get_type_name(ty).to_lowercase().as_str(), "string" | "str");
             let inner_parser = generate_parser(ty, next_literal);
 
             quote! {
@@ -152,7 +150,7 @@ fn generate_field_parser(
                         }
                     })
             }
-        },
+        }
         FieldKind::Primitive(ty) => {
             let parser = generate_parser(ty, next_literal);
 
@@ -173,17 +171,12 @@ fn generate_field_parser(
                             })
                     })
             }
-        },
-        _ => {
-            generate_unsupported_compile_error(field_name, field_type)
         }
+        _ => generate_unsupported_compile_error(field_name, field_type),
     }
 }
 
-fn generate_parser(
-    field_type: &syn::Type,
-    next_literal: Option<&str>,
-) -> proc_macro2::TokenStream {
+fn generate_parser(field_type: &syn::Type, next_literal: Option<&str>) -> proc_macro2::TokenStream {
     let base_parser = if let Some(next_lit) = next_literal {
         quote! {
             just::<&str, &str, chumsky::extra::Err<chumsky::error::Rich<char>>>(#next_lit)
@@ -213,6 +206,6 @@ fn generate_parser(
         },
         _ => quote! {
             #base_parser.to_slice()
-        }
+        },
     }
 }

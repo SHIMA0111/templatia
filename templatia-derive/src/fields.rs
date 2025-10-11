@@ -1,7 +1,7 @@
+use crate::utils::get_type_name;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use syn::GenericArgument;
-use crate::utils::get_type_name;
 
 pub(crate) enum FieldKind<'a> {
     Primitive(&'a syn::Type),
@@ -13,7 +13,7 @@ pub(crate) enum FieldKind<'a> {
     HashMap(&'a syn::Type, &'a syn::Type),
     BTreeMap(&'a syn::Type, &'a syn::Type),
     Tuple,
-    Unknown ,
+    Unknown,
 }
 
 impl Display for FieldKind<'_> {
@@ -21,12 +21,27 @@ impl Display for FieldKind<'_> {
         match self {
             FieldKind::Primitive(ty) => write!(f, "{}", get_type_name(ty)),
             FieldKind::Option(ty) => write!(f, "Option<{}>", get_type_name(ty)),
-            FieldKind::Result(ok_ty, err_ty) => write!(f, "Result<{}, {}>", get_type_name(ok_ty), get_type_name(err_ty)),
+            FieldKind::Result(ok_ty, err_ty) => write!(
+                f,
+                "Result<{}, {}>",
+                get_type_name(ok_ty),
+                get_type_name(err_ty)
+            ),
             FieldKind::Vec(ty) => write!(f, "Vec<{}>", get_type_name(ty)),
-            FieldKind::HashSet(ty) => write!(f, "HashMap<{}>", get_type_name(ty)),
+            FieldKind::HashSet(ty) => write!(f, "HashSet<{}>", get_type_name(ty)),
             FieldKind::BTreeSet(ty) => write!(f, "BTreeSet<{}>", get_type_name(ty)),
-            FieldKind::HashMap(k_ty, v_ty) => write!(f, "HashMap<{}, {}>", get_type_name(k_ty), get_type_name(v_ty)),
-            FieldKind::BTreeMap(k_ty, v_ty) => write!(f, "BTreeMap<{}, {}>", get_type_name(k_ty), get_type_name(v_ty)),
+            FieldKind::HashMap(k_ty, v_ty) => write!(
+                f,
+                "HashMap<{}, {}>",
+                get_type_name(k_ty),
+                get_type_name(v_ty)
+            ),
+            FieldKind::BTreeMap(k_ty, v_ty) => write!(
+                f,
+                "BTreeMap<{}, {}>",
+                get_type_name(k_ty),
+                get_type_name(v_ty)
+            ),
             FieldKind::Tuple => write!(f, "(<tuple>)"),
             FieldKind::Unknown => write!(f, "<unknown>"),
         }
@@ -42,7 +57,10 @@ impl<'a> Fields<'a> {
     pub(crate) fn new(fields: &'a [syn::Field]) -> Self {
         let idents_type = analyze_fields(fields);
 
-        Self { fields, idents_type }
+        Self {
+            fields,
+            idents_type,
+        }
     }
 
     pub(crate) fn get_type_kind_by_name(&'_ self, name: &str) -> Option<&FieldKind<'_>> {
@@ -50,8 +68,11 @@ impl<'a> Fields<'a> {
         self.idents_type.get(&name)
     }
 
-    pub(crate) fn used_fields_in_template(&self, placeholders: &HashSet<String>) -> Vec<&syn::Field> {
-       self.fields
+    pub(crate) fn used_fields_in_template(
+        &self,
+        placeholders: &HashSet<String>,
+    ) -> Vec<&syn::Field> {
+        self.fields
             .iter()
             .filter(|field| {
                 if let Some(ident) = field.ident.as_ref() {
@@ -68,11 +89,17 @@ impl<'a> Fields<'a> {
     }
 
     pub(crate) fn idents(&self) -> HashSet<&syn::Ident> {
-        self.fields.iter().filter_map(|f| f.ident.as_ref()).collect()
+        self.fields
+            .iter()
+            .filter_map(|f| f.ident.as_ref())
+            .collect()
     }
 
     pub(crate) fn field_names(&self) -> HashSet<String> {
-        self.idents().iter().map(|ident| ident.to_string()).collect()
+        self.idents()
+            .iter()
+            .map(|ident| ident.to_string())
+            .collect()
     }
 
     pub(crate) fn option_fields(&self) -> HashMap<&syn::Ident, &syn::Type> {
@@ -94,17 +121,21 @@ impl<'a> Fields<'a> {
         self.idents()
             .iter()
             .filter(|ident| !placeholders_names.contains(&ident.to_string()))
-            .map(|ident| *ident)
+            .copied()
             .collect()
     }
 
-    pub(crate) fn missing_placeholders_sep_opt(&self, placeholder_names: &HashSet<String>) -> (Vec<&syn::Ident>, Vec<&syn::Ident>) {
+    pub(crate) fn missing_placeholders_sep_opt(
+        &self,
+        placeholder_names: &HashSet<String>,
+    ) -> (Vec<&syn::Ident>, Vec<&syn::Ident>) {
         let mut missing_placeholders_sep_opt = Vec::new();
         let mut missing_placeholders_sep_non_opt = Vec::new();
 
         let option_fields = self.option_fields();
+        let missing_placeholders = self.missing_placeholders(placeholder_names);
 
-        for missing_placeholder in self.missing_placeholders(placeholder_names) {
+        for missing_placeholder in missing_placeholders {
             if option_fields.contains_key(missing_placeholder) {
                 missing_placeholders_sep_opt.push(missing_placeholder);
             } else {
@@ -112,7 +143,10 @@ impl<'a> Fields<'a> {
             }
         }
 
-        (missing_placeholders_sep_opt, missing_placeholders_sep_non_opt)
+        (
+            missing_placeholders_sep_opt,
+            missing_placeholders_sep_non_opt,
+        )
     }
 }
 
@@ -134,77 +168,110 @@ fn analyze_fields(fields: &'_ [syn::Field]) -> HashMap<&'_ syn::Ident, FieldKind
                             match ident.as_str() {
                                 "Option" => {
                                     // Option<T> has only one argument which is T.
-                                    if args.args.len() == 1 {
-                                        if let Some(GenericArgument::Type(ty)) = args.args.first() {
-                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::Option(ty));
-                                            continue;
-                                        }
+                                    if args.args.len() == 1
+                                        && let Some(GenericArgument::Type(ty)) = args.args.first()
+                                    {
+                                        result.insert(
+                                            field.ident.as_ref().unwrap(),
+                                            FieldKind::Option(ty),
+                                        );
+                                        continue;
                                     }
-                                },
+                                }
                                 "Vec" => {
-                                    if args.args.len() == 1 {
-                                        if let Some(GenericArgument::Type(ty)) = args.args.first() {
-                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::Vec(ty));
-                                            continue;
-                                        }
+                                    if args.args.len() == 1
+                                        && let Some(GenericArgument::Type(ty)) = args.args.first()
+                                    {
+                                        result.insert(
+                                            field.ident.as_ref().unwrap(),
+                                            FieldKind::Vec(ty),
+                                        );
+                                        continue;
                                     }
-                                },
+                                }
                                 "HashSet" => {
-                                    if args.args.len() == 1 {
-                                        if let Some(GenericArgument::Type(ty)) = args.args.first() {
-                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::HashSet(ty));
-                                            continue;
-                                        }
+                                    if args.args.len() == 1
+                                        && let Some(GenericArgument::Type(ty)) = args.args.first()
+                                    {
+                                        result.insert(
+                                            field.ident.as_ref().unwrap(),
+                                            FieldKind::HashSet(ty),
+                                        );
+                                        continue;
                                     }
-                                },
+                                }
                                 "BTreeSet" => {
-                                    if args.args.len() == 1 {
-                                        if let Some(GenericArgument::Type(ty)) = args.args.first() {
-                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::BTreeSet(ty));
-                                            continue;
-                                        }
+                                    if args.args.len() == 1
+                                        && let Some(GenericArgument::Type(ty)) = args.args.first()
+                                    {
+                                        result.insert(
+                                            field.ident.as_ref().unwrap(),
+                                            FieldKind::BTreeSet(ty),
+                                        );
+                                        continue;
                                     }
-                                },
+                                }
                                 "HashMap" => {
-                                    if args.args.len() == 2 {
-                                        if let (Some(GenericArgument::Type(key_ty)), Some(GenericArgument::Type(value_ty))) = (args.args.first(), args.args.last()) {
-                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::HashMap(key_ty, value_ty));
-                                            continue;
-                                        }
+                                    if args.args.len() == 2
+                                        && let (
+                                            Some(GenericArgument::Type(key_ty)),
+                                            Some(GenericArgument::Type(value_ty)),
+                                        ) = (args.args.first(), args.args.last())
+                                    {
+                                        result.insert(
+                                            field.ident.as_ref().unwrap(),
+                                            FieldKind::HashMap(key_ty, value_ty),
+                                        );
+                                        continue;
                                     }
-                                },
+                                }
                                 "BTreeMap" => {
-                                    if args.args.len() == 2 {
-                                        if let (Some(GenericArgument::Type(key_ty)), Some(GenericArgument::Type(value_ty))) = (args.args.first(), args.args.last()) {
-                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::BTreeMap(key_ty, value_ty));
-                                            continue;
-                                        }
+                                    if args.args.len() == 2
+                                        && let (
+                                            Some(GenericArgument::Type(key_ty)),
+                                            Some(GenericArgument::Type(value_ty)),
+                                        ) = (args.args.first(), args.args.last())
+                                    {
+                                        result.insert(
+                                            field.ident.as_ref().unwrap(),
+                                            FieldKind::BTreeMap(key_ty, value_ty),
+                                        );
+                                        continue;
                                     }
-                                },
+                                }
                                 "Result" => {
-                                    if args.args.len() == 2 {
-                                        if let (Some(GenericArgument::Type(ok_ty)), Some(GenericArgument::Type(err_ty))) = (args.args.first(), args.args.last()) {
-                                            result.insert(field.ident.as_ref().unwrap(), FieldKind::Result(ok_ty, err_ty));
-                                            continue;
-                                        }
+                                    if args.args.len() == 2
+                                        && let (
+                                            Some(GenericArgument::Type(ok_ty)),
+                                            Some(GenericArgument::Type(err_ty)),
+                                        ) = (args.args.first(), args.args.last())
+                                    {
+                                        result.insert(
+                                            field.ident.as_ref().unwrap(),
+                                            FieldKind::Result(ok_ty, err_ty),
+                                        );
+                                        continue;
                                     }
-                                },
+                                }
                                 _ => {}
                             }
                             result.insert(field.ident.as_ref().unwrap(), FieldKind::Unknown);
-                        },
+                        }
                         syn::PathArguments::None => {
-                            result.insert(field.ident.as_ref().unwrap(), FieldKind::Primitive(&field.ty));
-                        },
+                            result.insert(
+                                field.ident.as_ref().unwrap(),
+                                FieldKind::Primitive(&field.ty),
+                            );
+                        }
                         syn::PathArguments::Parenthesized(_) => {
                             result.insert(field.ident.as_ref().unwrap(), FieldKind::Unknown);
                         }
                     }
                 }
-            },
+            }
             syn::Type::Tuple(_) => {
                 result.insert(field.ident.as_ref().unwrap(), FieldKind::Tuple);
-            },
+            }
             _ => {
                 result.insert(field.ident.as_ref().unwrap(), FieldKind::Unknown);
             }

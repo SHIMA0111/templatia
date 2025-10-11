@@ -133,7 +133,10 @@ mod custom_template_tests {
         };
 
         let template = config.render_string();
-        assert_eq!(template, "Server: db.example.com | Port: 5432 | DB: production");
+        assert_eq!(
+            template,
+            "Server: db.example.com | Port: 5432 | DB: production"
+        );
 
         let parsed = ComplexFormat::from_str(&template).unwrap();
         assert_eq!(parsed, config);
@@ -277,7 +280,7 @@ mod duplicate_placeholder_tests {
         }
 
         let result = Inconsistent::from_str("first=alice, second=bob");
-        
+
         match result {
             Err(TemplateError::InconsistentValues {
                 placeholder,
@@ -301,7 +304,7 @@ mod duplicate_placeholder_tests {
         }
 
         let result = NumericInconsistent::from_str("port1=8080 port2=9090");
-        
+
         match result {
             Err(TemplateError::InconsistentValues {
                 placeholder,
@@ -353,9 +356,13 @@ mod error_handling_tests {
         }
 
         let result = PortConfig::from_str("port=not_a_number");
-        
+
         match result {
-            Err(TemplateError::ParseToType { placeholder, value, type_name }) => {
+            Err(TemplateError::ParseToType {
+                placeholder,
+                value,
+                type_name,
+            }) => {
                 assert_eq!(placeholder, "port");
                 assert_eq!(value, "not_a_number");
                 assert_eq!(type_name, "u16");
@@ -373,9 +380,13 @@ mod error_handling_tests {
         }
 
         let result = BoolConfig::from_str("enabled=maybe");
-        
+
         match result {
-            Err(TemplateError::ParseToType { placeholder, value, type_name }) => {
+            Err(TemplateError::ParseToType {
+                placeholder,
+                value,
+                type_name,
+            }) => {
                 assert_eq!(placeholder, "enabled");
                 assert_eq!(value, "maybe");
                 assert_eq!(type_name, "bool");
@@ -393,9 +404,13 @@ mod error_handling_tests {
         }
 
         let result = OverflowTest::from_str("value=256");
-        
+
         match result {
-            Err(TemplateError::ParseToType{ placeholder, value, type_name }) => {
+            Err(TemplateError::ParseToType {
+                placeholder,
+                value,
+                type_name,
+            }) => {
                 assert_eq!(placeholder, "value");
                 assert_eq!(value, "256");
                 assert_eq!(type_name, "u8");
@@ -413,9 +428,13 @@ mod error_handling_tests {
         }
 
         let result = UnsignedTest::from_str("count=-1");
-        
+
         match result {
-            Err(TemplateError::ParseToType{ placeholder, value, type_name }) => {
+            Err(TemplateError::ParseToType {
+                placeholder,
+                value,
+                type_name,
+            }) => {
                 assert_eq!(placeholder, "count");
                 assert_eq!(value, "-1");
                 assert_eq!(type_name, "u32");
@@ -435,9 +454,12 @@ mod error_handling_tests {
 
         // Missing colon separator
         let result = HostPort::from_str("host=localhost 8080");
-        
+
         match result {
-            Err(TemplateError::UnexpectedInput { expected_next_literal, remaining_text }) => {
+            Err(TemplateError::UnexpectedInput {
+                expected_next_literal,
+                remaining_text,
+            }) => {
                 assert_eq!(expected_next_literal, ":");
                 assert_eq!(remaining_text, "localhost 8080");
             }
@@ -455,9 +477,12 @@ mod error_handling_tests {
 
         // Missing suffix
         let result = PrefixSuffix::from_str("prefix_test");
-        
+
         match result {
-            Err(TemplateError::UnexpectedInput { expected_next_literal, remaining_text }) => {
+            Err(TemplateError::UnexpectedInput {
+                expected_next_literal,
+                remaining_text,
+            }) => {
                 assert_eq!(expected_next_literal, "_suffix");
                 assert_eq!(remaining_text, "test");
             }
@@ -478,10 +503,12 @@ mod type_constraint_tests {
             value: f64,
         }
 
-        let original = FloatTest { value: std::f64::consts::PI };
+        let original = FloatTest {
+            value: std::f64::consts::PI,
+        };
         let template = original.render_string();
         let parsed = FloatTest::from_str(&template).unwrap();
-        
+
         // Allow for floating point precision differences
         assert!((parsed.value - original.value).abs() < 1e-10);
     }
@@ -579,7 +606,7 @@ mod field_combination_tests {
             field_a: "alpha".into(),
             field_b: 42,
             field_c: true,
-            field_d: 3.14,
+            field_d: std::f64::consts::PI,
             field_e: -123,
             field_f: "omega".into(),
         };
@@ -1036,7 +1063,7 @@ mod missing_field_tests {
         let parsed = MultiMissing::from_str(&template).unwrap();
         assert_eq!(parsed.id, 42);
         assert_eq!(parsed.name, ""); // Default for String
-        assert_eq!(parsed.enabled, false); // Default for bool
+        assert!(!parsed.enabled); // Default for bool
         assert_eq!(parsed.count, 0); // Default for i32
     }
 
@@ -1086,7 +1113,7 @@ mod missing_field_tests {
             text: "ignored".into(),
             number: 999,
             unsigned: 12345,
-            float: 3.14,
+            float: std::f64::consts::PI,
             character: 'X',
         };
 
@@ -1094,7 +1121,7 @@ mod missing_field_tests {
         assert_eq!(template, "active=true");
 
         let parsed = AllTypes::from_str(&template).unwrap();
-        assert_eq!(parsed.active, true);
+        assert!(parsed.active);
         assert_eq!(parsed.text, "");
         assert_eq!(parsed.number, 0);
         assert_eq!(parsed.unsigned, 0);
@@ -1121,7 +1148,7 @@ mod missing_field_tests {
 
         let template1 = original.render_string();
         let parsed1 = StatusReport::from_str(&template1).unwrap();
-        
+
         // Missing fields get defaults
         assert_eq!(parsed1.status, "ok");
         assert_eq!(parsed1.timestamp, 0);
@@ -1130,7 +1157,7 @@ mod missing_field_tests {
         // Second roundtrip - template stays the same
         let template2 = parsed1.render_string();
         assert_eq!(template1, template2);
-        
+
         let parsed2 = StatusReport::from_str(&template2).unwrap();
         assert_eq!(parsed2, parsed1);
     }
@@ -1232,7 +1259,7 @@ mod missing_field_tests {
         assert_eq!(template, "trueX");
 
         let parsed = ConsecutiveWithMissing::from_str(&template).unwrap();
-        assert_eq!(parsed.flag, true);
+        assert!(parsed.flag);
         assert_eq!(parsed.ch, 'X');
         assert_eq!(parsed.extra1, "");
         assert_eq!(parsed.extra2, 0);
@@ -1284,7 +1311,7 @@ mod missing_field_tests {
 
         let parsed = LastOnly::from_str(&template).unwrap();
         assert_eq!(parsed.first, 0);
-        assert_eq!(parsed.second, false);
+        assert!(!parsed.second);
         assert_eq!(parsed.last, "final");
     }
 

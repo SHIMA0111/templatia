@@ -1,13 +1,12 @@
-use std::collections::HashSet;
+use crate::parser::TemplateSegments;
 use proc_macro2::TokenStream;
 use quote::quote;
-use crate::parser::TemplateSegments;
+use std::collections::HashSet;
 
 pub(super) fn generate_format_string_args(
     segments: &[TemplateSegments<'_>],
     option_fields: &HashSet<&syn::Ident>,
-) -> (String, Vec<TokenStream>)
-{
+) -> (String, Vec<TokenStream>) {
     // Generate format string like "key = {}, key2 = {}"
     let format_string = segments
         .iter()

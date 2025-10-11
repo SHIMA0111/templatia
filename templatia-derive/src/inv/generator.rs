@@ -1,10 +1,10 @@
-use crate::parser::TemplateSegments;
-use quote::quote;
-use std::collections::{HashMap, HashSet};
 use crate::error::generate_not_found_placeholder_compile_error;
 use crate::fields::Fields;
 use crate::inv::parser::generate_parser_from_segments;
 use crate::inv::validator::validate_template_safety;
+use crate::parser::TemplateSegments;
+use quote::quote;
+use std::collections::{HashMap, HashSet};
 
 pub(crate) fn generate_str_parser(
     struct_name: &syn::Ident,
@@ -17,7 +17,10 @@ pub(crate) fn generate_str_parser(
 ) -> proc_macro2::TokenStream {
     for name in placeholder_names {
         if !fields.field_names().contains(name) {
-            return generate_not_found_placeholder_compile_error(struct_name.to_string().as_str(), name);
+            return generate_not_found_placeholder_compile_error(
+                struct_name.to_string().as_str(),
+                name,
+            );
         }
     }
 
@@ -26,18 +29,14 @@ pub(crate) fn generate_str_parser(
     }
 
     let replace_colon = quote! { replace(":", #escaped_colon_marker) };
-    let generated_full_parser = generate_parser_from_segments(
-        segments,
-        &fields,
-        empty_str_as_none,
-        &replace_colon,
-    );
+    let generated_full_parser =
+        generate_parser_from_segments(segments, fields, empty_str_as_none, &replace_colon);
 
     let field_names = segments
         .iter()
         .filter_map(|segment| match segment {
             TemplateSegments::Placeholder(name) => {
-                Some(syn::Ident::new(&name, proc_macro2::Span::call_site()))
+                Some(syn::Ident::new(name, proc_macro2::Span::call_site()))
             }
             _ => None,
         })
@@ -55,7 +54,7 @@ pub(crate) fn generate_str_parser(
         .collect::<Vec<_>>();
 
     let (missing_placeholders_option, missing_placeholders_non_option) =
-        fields.missing_placeholders_sep_opt(&placeholder_names);
+        fields.missing_placeholders_sep_opt(placeholder_names);
 
     // Even if the template has no all fields without allow_missing_placeholders,
     // it is passed if the missing_placeholders are Option<T> type
@@ -66,15 +65,15 @@ pub(crate) fn generate_str_parser(
                 "{} has more field specified than the template's placeholders: {}\n\
                 If you want to allow missing placeholders, \
                 use `#[templatia(allow_missing_placeholders)]` attribute.",
-                struct_name.to_string(),
+                struct_name,
                 missing_placeholders_non_option
                     .iter()
                     .map(|ident| ident.to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
-            )
+            ),
         );
-        return error.to_compile_error().into();
+        return error.to_compile_error();
     }
 
     let struct_constructor = quote! {
@@ -105,36 +104,32 @@ pub(crate) fn generate_str_parser(
         quote! { #name }
     });
 
-    let dup_bases = dup_checks
-        .iter()
-        .map(|(base, _, name)| {
-            let ident = syn::Ident::new(name, proc_macro2::Span::call_site());
-            if fields.option_fields().contains_key(&ident) {
-                quote! {
-                    #base
-                        .as_ref()
-                        .map(|v| v.to_string())
-                        .unwrap_or_default()
-                }
-            } else {
-                quote! { #base }
+    let dup_bases = dup_checks.iter().map(|(base, _, name)| {
+        let ident = syn::Ident::new(name, proc_macro2::Span::call_site());
+        if fields.option_fields().contains_key(&ident) {
+            quote! {
+                #base
+                    .as_ref()
+                    .map(|v| v.to_string())
+                    .unwrap_or_default()
             }
-        });
-    let dup_dups = dup_checks
-        .iter()
-        .map(|(_, dup, name)| {
-            let ident = syn::Ident::new(name, proc_macro2::Span::call_site());
-            if fields.option_fields().contains_key(&ident) {
-                quote! {
-                    #dup
-                        .as_ref()
-                        .map(|v| v.to_string())
-                        .unwrap_or_default()
-                }
-            } else {
-                quote! { #dup }
+        } else {
+            quote! { #base }
+        }
+    });
+    let dup_dups = dup_checks.iter().map(|(_, dup, name)| {
+        let ident = syn::Ident::new(name, proc_macro2::Span::call_site());
+        if fields.option_fields().contains_key(&ident) {
+            quote! {
+                #dup
+                    .as_ref()
+                    .map(|v| v.to_string())
+                    .unwrap_or_default()
             }
-        });
+        } else {
+            quote! { #dup }
+        }
+    });
 
     let final_parser = quote! {
         #generated_full_parser
@@ -160,7 +155,7 @@ pub(crate) fn generate_str_parser(
 }
 
 fn generate_tuple_pattern(
-    field_names: &Vec<syn::Ident>,
+    field_names: &[syn::Ident],
 ) -> (
     proc_macro2::TokenStream,
     Vec<(syn::Ident, syn::Ident, String)>,
