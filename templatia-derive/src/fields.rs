@@ -28,7 +28,7 @@ impl Display for FieldKind<'_> {
                 get_type_name(err_ty)
             ),
             FieldKind::Vec(ty) => write!(f, "Vec<{}>", get_type_name(ty)),
-            FieldKind::HashSet(ty) => write!(f, "HashMap<{}>", get_type_name(ty)),
+            FieldKind::HashSet(ty) => write!(f, "HashSet<{}>", get_type_name(ty)),
             FieldKind::BTreeSet(ty) => write!(f, "BTreeSet<{}>", get_type_name(ty)),
             FieldKind::HashMap(k_ty, v_ty) => write!(
                 f,
@@ -169,7 +169,8 @@ fn analyze_fields(fields: &'_ [syn::Field]) -> HashMap<&'_ syn::Ident, FieldKind
                                 "Option" => {
                                     // Option<T> has only one argument which is T.
                                     if args.args.len() == 1
-                                        && let Some(GenericArgument::Type(ty)) = args.args.first() {
+                                        && let Some(GenericArgument::Type(ty)) = args.args.first()
+                                    {
                                         result.insert(
                                             field.ident.as_ref().unwrap(),
                                             FieldKind::Option(ty),
@@ -179,7 +180,8 @@ fn analyze_fields(fields: &'_ [syn::Field]) -> HashMap<&'_ syn::Ident, FieldKind
                                 }
                                 "Vec" => {
                                     if args.args.len() == 1
-                                        && let Some(GenericArgument::Type(ty)) = args.args.first() {
+                                        && let Some(GenericArgument::Type(ty)) = args.args.first()
+                                    {
                                         result.insert(
                                             field.ident.as_ref().unwrap(),
                                             FieldKind::Vec(ty),
@@ -189,7 +191,8 @@ fn analyze_fields(fields: &'_ [syn::Field]) -> HashMap<&'_ syn::Ident, FieldKind
                                 }
                                 "HashSet" => {
                                     if args.args.len() == 1
-                                        && let Some(GenericArgument::Type(ty)) = args.args.first() {
+                                        && let Some(GenericArgument::Type(ty)) = args.args.first()
+                                    {
                                         result.insert(
                                             field.ident.as_ref().unwrap(),
                                             FieldKind::HashSet(ty),
@@ -199,7 +202,8 @@ fn analyze_fields(fields: &'_ [syn::Field]) -> HashMap<&'_ syn::Ident, FieldKind
                                 }
                                 "BTreeSet" => {
                                     if args.args.len() == 1
-                                        && let Some(GenericArgument::Type(ty)) = args.args.first() {
+                                        && let Some(GenericArgument::Type(ty)) = args.args.first()
+                                    {
                                         result.insert(
                                             field.ident.as_ref().unwrap(),
                                             FieldKind::BTreeSet(ty),
@@ -208,32 +212,32 @@ fn analyze_fields(fields: &'_ [syn::Field]) -> HashMap<&'_ syn::Ident, FieldKind
                                     }
                                 }
                                 "HashMap" => {
-                                    if args.args.len() == 2 &&
-                                        let (
+                                    if args.args.len() == 2
+                                        && let (
                                             Some(GenericArgument::Type(key_ty)),
                                             Some(GenericArgument::Type(value_ty)),
                                         ) = (args.args.first(), args.args.last())
-                                        {
-                                            result.insert(
-                                                field.ident.as_ref().unwrap(),
-                                                FieldKind::HashMap(key_ty, value_ty),
-                                            );
-                                            continue;
-                                        }
+                                    {
+                                        result.insert(
+                                            field.ident.as_ref().unwrap(),
+                                            FieldKind::HashMap(key_ty, value_ty),
+                                        );
+                                        continue;
+                                    }
                                 }
                                 "BTreeMap" => {
-                                    if args.args.len() == 2 &&
-                                        let (
+                                    if args.args.len() == 2
+                                        && let (
                                             Some(GenericArgument::Type(key_ty)),
                                             Some(GenericArgument::Type(value_ty)),
                                         ) = (args.args.first(), args.args.last())
-                                        {
-                                            result.insert(
-                                                field.ident.as_ref().unwrap(),
-                                                FieldKind::BTreeMap(key_ty, value_ty),
-                                            );
-                                            continue;
-                                        }
+                                    {
+                                        result.insert(
+                                            field.ident.as_ref().unwrap(),
+                                            FieldKind::BTreeMap(key_ty, value_ty),
+                                        );
+                                        continue;
+                                    }
                                 }
                                 "Result" => {
                                     if args.args.len() == 2
@@ -241,13 +245,13 @@ fn analyze_fields(fields: &'_ [syn::Field]) -> HashMap<&'_ syn::Ident, FieldKind
                                             Some(GenericArgument::Type(ok_ty)),
                                             Some(GenericArgument::Type(err_ty)),
                                         ) = (args.args.first(), args.args.last())
-                                        {
-                                            result.insert(
-                                                field.ident.as_ref().unwrap(),
-                                                FieldKind::Result(ok_ty, err_ty),
-                                            );
-                                            continue;
-                                        }
+                                    {
+                                        result.insert(
+                                            field.ident.as_ref().unwrap(),
+                                            FieldKind::Result(ok_ty, err_ty),
+                                        );
+                                        continue;
+                                    }
                                 }
                                 _ => {}
                             }
