@@ -26,24 +26,24 @@
 //!
 //! For detailed usage examples and comprehensive documentation, see the main `templatia` crate.
 
-mod parser;
-mod utils;
-mod inv;
-pub(crate) mod fields;
-mod render;
 pub(crate) mod error;
+pub(crate) mod fields;
+mod inv;
+mod parser;
+mod render;
+mod utils;
 
-use inv::generator::generate_str_parser;
-use crate::parser::{parse_template, TemplateSegments};
+use crate::error::generate_unsupported_compile_error;
+use crate::fields::{FieldKind, Fields};
+use crate::parser::{TemplateSegments, parse_template};
+use crate::render::generate_format_string_args;
 use darling::FromDeriveInput;
 use darling::util::{Flag, Override};
+use inv::generator::generate_str_parser;
 use proc_macro::TokenStream;
 use quote::quote;
 use std::collections::HashSet;
-use syn::{parse_macro_input, DeriveInput};
-use crate::error::generate_unsupported_compile_error;
-use crate::fields::{FieldKind, Fields};
-use crate::render::generate_format_string_args;
+use syn::{DeriveInput, parse_macro_input};
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(templatia), supports(struct_named))]
@@ -112,7 +112,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         }
     };
 
-    let marker_input = format!("{}::{}", name.to_string(), template);
+    let marker_input = format!("{}::{}", name, template);
     let hash = {
         use std::hash::{DefaultHasher, Hash, Hasher};
 
@@ -137,8 +137,8 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
 
     let option_fields = fields
         .option_fields()
-        .iter()
-        .map(|(ident, _)| *ident)
+        .keys()
+        .copied()
         .collect::<HashSet<_>>();
 
     let segments = match parse_template(&template) {
@@ -189,10 +189,10 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
                     new_where_clause.predicates.push(syn::parse_quote! {
                         #ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq
                     });
-                            new_where_clause.predicates.push(syn::parse_quote! {
+                    new_where_clause.predicates.push(syn::parse_quote! {
                         <#ty as ::std::str::FromStr>::Err: ::std::fmt::Display
                     });
-                },
+                }
                 Some(FieldKind::Primitive(ty)) => {
                     if !allow_missing_placeholders {
                         new_where_clause.predicates.push(syn::parse_quote! {
@@ -206,9 +206,11 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
                     new_where_clause.predicates.push(syn::parse_quote! {
                         <#ty as ::std::str::FromStr>::Err: ::std::fmt::Display
                     });
-                },
+                }
                 Some(kind) => return generate_unsupported_compile_error(ident, kind).into(),
-                None => return generate_unsupported_compile_error(ident, &FieldKind::Unknown).into(),
+                None => {
+                    return generate_unsupported_compile_error(ident, &FieldKind::Unknown).into();
+                }
             }
         }
     }

@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.3] - 2025-10-11
+### Added
+- New compile-fail tests for unsupported types (collections, maps, results, tuples) to improve diagnostics and prevent incorrect usage patterns.
+- New test suite `escaped_colon_tests.rs` to validate handling of escaped colons in templates.
+
+### Changed
+- Major internal refactoring: reorganized derive macro implementation by extracting `generator.rs` into modular components under `inv/` module (parser, generator, validator).
+- Improved error handling with better error messages and more granular error reporting in `templatia-derive`.
+- Enhanced parser logic to support future feature implementations.
+- Refactored field type analysis by introducing `FieldKind` enum and `Fields` struct in `fields.rs` for better type handling and code maintainability.
+- Introduced dedicated `render.rs` module for template rendering logic.
+
+### Removed
+- Decided against adding compile-time warnings for specific patterns due to complexity of implementing elegant warnings without nightly features. Focus remains on clear error messages instead.
+
 ## [0.0.2] - 2025-10-03
 ### Added
 - Support for Option<T>: When a placeholder is absent in the template, fields of type `Option<T>` automatically default to `None`.

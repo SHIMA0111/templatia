@@ -37,7 +37,7 @@ cargo add templatia --features derive
 
 ```toml
 [dependencies]
-templatia = { version = "0.0.2", features = ["derive"] }
+templatia = { version = "0.0.3", features = ["derive"] }
 ```
 
 ```rust
@@ -210,7 +210,8 @@ templatia defines a simple error type for parsing and validation:
   - [x] Option<T>: default to `None` when the placeholder is absent (automatic support without requiring `allow_missing_placeholders`)
   - [x] Remove `type Struct` from `Template` trait
 - 0.0.3
-  - [ ] Enrich error handling and warnings (clearer diagnostics and coverage)
+  - [x] Enrich error handling (clearer diagnostics and coverage through compile-fail tests)
+  - [x] Internal refactoring to prepare for future feature implementations
 - 0.0.4
   - [ ] Declarative templates for field collections such as `Vec`, `HashMap`, and `HashSet`
   - [ ] Add `container` attribute to increase flexibility at the parent structure level

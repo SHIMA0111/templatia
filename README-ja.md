@@ -37,7 +37,7 @@ cargo add templatia --features derive
 1) templatiaをインポートする。featuresには`derive`を追加します。
 ```toml
 [dependencies]
-templatia = { version = "0.0.2", features = ["derive"] }
+templatia = { version = "0.0.3", features = ["derive"] }
 ```
 
 ```rust
@@ -209,7 +209,8 @@ templatia は解析や検証に関するシンプルなエラー型を提供し�
   - [x] Option<T>: プレースホルダが無い場合は既定で None（`allow_missing_placeholders` 不要で自動対応）
   - [x] `Template`トレイトから関連型の`type Struct`を削除
 - 0.0.3
-  - [ ] エラーハンドリングと警告の充実化（診断の明確化とカバレッジ拡大）
+  - [x] エラーハンドリングの充実化（compile-failテストによる診断の明確化とカバレッジ拡大）
+  - [x] 将来の機能実装に備えた内部リファクタリング
 - 0.0.4
   - [ ] Vec, HashMap, HashSet などコレクション向けの宣言的テンプレート対応
   - [ ] 親構造体でテンプレートの柔軟性を高めるための container 属性の追加

@@ -18,7 +18,11 @@ mod colon_escape_error_tests {
         // Different values for duplicate placeholder; both contain ':'
         let result = WithName::from_str("first=a:b, second=c:d");
         match result {
-            Err(TemplateError::InconsistentValues { placeholder, first_value, second_value }) => {
+            Err(TemplateError::InconsistentValues {
+                placeholder,
+                first_value,
+                second_value,
+            }) => {
                 assert_eq!(placeholder, "name");
                 assert_eq!(first_value, "a:b");
                 assert_eq!(second_value, "c:d");
@@ -38,7 +42,11 @@ mod colon_escape_error_tests {
         // Value contains ':' which makes number parsing fail
         let result = PortCfg::from_str("port=12:34");
         match result {
-            Err(TemplateError::ParseToType { placeholder, value, type_name }) => {
+            Err(TemplateError::ParseToType {
+                placeholder,
+                value,
+                type_name,
+            }) => {
                 assert_eq!(placeholder, "port");
                 assert_eq!(value, "12:34");
                 assert_eq!(type_name, "u16");
@@ -59,7 +67,10 @@ mod colon_escape_error_tests {
         // Provide input where that literal does not match to trigger UnexpectedInput.
         let result = Greeter::from_str("Hello Alice- world");
         match result {
-            Err(TemplateError::UnexpectedInput { expected_next_literal, remaining_text }) => {
+            Err(TemplateError::UnexpectedInput {
+                expected_next_literal,
+                remaining_text,
+            }) => {
                 // The expected literal should include ':'
                 assert_eq!(expected_next_literal, ": world");
                 // Remaining text starts from the last successfully matched literal (before the placeholder),
@@ -82,7 +93,10 @@ mod colon_escape_error_tests {
         // to ensure ':' is preserved in the user-facing error.
         let result = Greeter2::from_str("Hello Alice:world");
         match result {
-            Err(TemplateError::UnexpectedInput { expected_next_literal, remaining_text }) => {
+            Err(TemplateError::UnexpectedInput {
+                expected_next_literal,
+                remaining_text,
+            }) => {
                 assert_eq!(expected_next_literal, " world");
                 // Remaining text starts from the previous literal; includes parsed placeholder value
                 assert_eq!(remaining_text, "Alice:world");

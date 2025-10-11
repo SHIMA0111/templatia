@@ -8,7 +8,7 @@ pub(crate) fn is_allowed_consecutive_allowed_type(field_type: &syn::Type) -> boo
             } else {
                 false
             }
-        },
+        }
         _ => false,
     }
 }
@@ -21,7 +21,7 @@ pub(crate) fn get_type_name(ty: &syn::Type) -> String {
             } else {
                 "unrecognized".to_string()
             }
-        },
+        }
         _ => "unrecognized".to_string(),
     }
 }

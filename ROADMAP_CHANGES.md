@@ -2,6 +2,34 @@
 
 This document tracks significant changes to the project roadmap and explains the reasoning behind those changes.
 
+## v0.0.3
+
+### Original Plan
+
+The initial v0.0.3 roadmap included:
+
+1. Enrich error handling and warnings (clearer diagnostics and coverage)
+2. Add compile-time warnings for specific usage patterns
+
+### Changes Made
+
+**Removed Items:**
+- **Compile-time warnings**: Removed because implementing elegant warnings without nightly compiler features (such as `proc_macro::Diagnostic`) would require workarounds that compromise code quality and maintainability. Instead, the focus shifted to providing clear and actionable compile-time errors for unsupported patterns.
+
+**What Was Actually Done:**
+- Enhanced error messages and added comprehensive compile-fail tests for unsupported types (collections, maps, results, tuples)
+- Major internal refactoring to prepare for future feature implementations
+- Improved parser logic and error handling infrastructure
+- Added test coverage for edge cases (escaped colons, etc.)
+
+### Design Rationale
+
+The revised v0.0.3 approach follows these principles:
+
+1. **Pragmatism over perfection**: Clear error messages are more valuable than warnings when the action is definitively wrong
+2. **Maintainability**: Avoid complex workarounds that would make the codebase harder to maintain
+3. **Future-proofing**: Internal refactoring sets up a solid foundation for upcoming features like collections support in v0.0.4
+
 ## v0.0.2
 
 ### Original Plan
