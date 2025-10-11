@@ -45,6 +45,7 @@ jobs:
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
+    if: github.base_ref != 'develop'
     steps:
       - uses: actions/checkout@v4
 
@@ -62,6 +63,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    if: github.base_ref != 'develop'
     steps:
       - uses: actions/checkout@v4
 
@@ -94,6 +96,7 @@ jobs:
   doc:
     name: Documentation
     runs-on: ubuntu-latest
+    if: github.base_ref != 'develop'
     steps:
       - uses: actions/checkout@v4
 

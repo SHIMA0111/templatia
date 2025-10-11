@@ -488,7 +488,7 @@ where
     ///
     /// # Parameters
     ///
-    /// * `s` - The source string to parse. Should match the expected template format.
+    /// - s: The source string to parse. Should match the expected template format.
     ///
     /// # Returns
     ///
@@ -552,7 +552,7 @@ pub enum TemplateError {
     /// - first_value: The first observed value.
     /// - second_value: The conflicting later value.
     #[error(
-        "Inconsistent values for placeholder '{placeholder}': found '{first_value}', and after face '{second_value}'"
+        "Inconsistent values for placeholder '{placeholder}': found '{first_value}', and afterwards '{second_value}'"
     )]
     InconsistentValues {
         placeholder: String,
