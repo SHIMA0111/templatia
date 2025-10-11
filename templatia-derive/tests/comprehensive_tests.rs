@@ -606,7 +606,7 @@ mod field_combination_tests {
             field_a: "alpha".into(),
             field_b: 42,
             field_c: true,
-            field_d: 3.14,
+            field_d: std::f64::consts::PI,
             field_e: -123,
             field_f: "omega".into(),
         };
@@ -1063,7 +1063,7 @@ mod missing_field_tests {
         let parsed = MultiMissing::from_str(&template).unwrap();
         assert_eq!(parsed.id, 42);
         assert_eq!(parsed.name, ""); // Default for String
-        assert_eq!(parsed.enabled, false); // Default for bool
+        assert!(!parsed.enabled); // Default for bool
         assert_eq!(parsed.count, 0); // Default for i32
     }
 
@@ -1113,7 +1113,7 @@ mod missing_field_tests {
             text: "ignored".into(),
             number: 999,
             unsigned: 12345,
-            float: 3.14,
+            float: std::f64::consts::PI,
             character: 'X',
         };
 
@@ -1121,7 +1121,7 @@ mod missing_field_tests {
         assert_eq!(template, "active=true");
 
         let parsed = AllTypes::from_str(&template).unwrap();
-        assert_eq!(parsed.active, true);
+        assert!(parsed.active);
         assert_eq!(parsed.text, "");
         assert_eq!(parsed.number, 0);
         assert_eq!(parsed.unsigned, 0);
@@ -1259,7 +1259,7 @@ mod missing_field_tests {
         assert_eq!(template, "trueX");
 
         let parsed = ConsecutiveWithMissing::from_str(&template).unwrap();
-        assert_eq!(parsed.flag, true);
+        assert!(parsed.flag);
         assert_eq!(parsed.ch, 'X');
         assert_eq!(parsed.extra1, "");
         assert_eq!(parsed.extra2, 0);
@@ -1311,7 +1311,7 @@ mod missing_field_tests {
 
         let parsed = LastOnly::from_str(&template).unwrap();
         assert_eq!(parsed.first, 0);
-        assert_eq!(parsed.second, false);
+        assert!(!parsed.second);
         assert_eq!(parsed.last, "final");
     }
 

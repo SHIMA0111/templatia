@@ -231,14 +231,14 @@ mod option_type_tests {
         }
 
         let instance = OptionalFloats {
-            f32_val: Some(3.14),
+            f32_val: Some(std::f32::consts::PI),
             f64_val: Some(std::f64::consts::E),
         };
 
         let template = instance.render_string();
         let parsed = OptionalFloats::from_str(&template).unwrap();
 
-        assert!((parsed.f32_val.unwrap() - 3.14).abs() < 1e-5);
+        assert!((parsed.f32_val.unwrap() - std::f32::consts::PI).abs() < 1e-5);
         assert!((parsed.f64_val.unwrap() - std::f64::consts::E).abs() < 1e-10);
     }
 }

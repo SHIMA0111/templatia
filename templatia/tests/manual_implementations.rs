@@ -215,7 +215,7 @@ mod manual_implementation_tests {
 
         let parsed = KeyValue::<bool>::from_str("debug=false").unwrap();
         assert_eq!(parsed.key, "debug");
-        assert_eq!(parsed.value, false);
+        assert!(!parsed.value);
     }
 
     #[test]
