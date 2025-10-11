@@ -533,7 +533,7 @@ where
 
 /// Errors produced by templatia operations.
 ///
-/// # Variants
+/// # Fields
 /// - InconsistentValues: The same placeholder appears multiple times with conflicting values.
 /// - ParseToType: A captured value cannot be parsed into the target field type.
 /// - UnexpectedInput: The remaining input does not match the next expected literal from the template.

@@ -63,7 +63,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    if: github.base_ref != 'develop'
     steps:
       - uses: actions/checkout@v4
 
