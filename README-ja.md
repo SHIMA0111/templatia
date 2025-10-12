@@ -1,3 +1,9 @@
+[![CI](https://github.com/SHIMA0111/templatia/actions/workflows/ci.yml/badge.svg)](https://github.com/SHIMA0111/templatia/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/templatia.svg)](https://crates.io/crates/templatia)
+[![Docs.rs](https://docs.rs/templatia/badge.svg)](https://docs.rs/templatia)
+[![Crates.io MSRV (version)](https://img.shields.io/crates/msrv/templatia/0.0.3)](https://crates.io/crates/templatia)
+[![Downloads](https://img.shields.io/crates/d/templatia.svg)](https://crates.io/crates/templatia)
+
 # templatia
 
 Rustの構造体とテキストのシームレスな相互変換をユーザが定義するテンプレートに従って実現するテンプレートベースのシリアライズ/デシリアライズライブラリです。
