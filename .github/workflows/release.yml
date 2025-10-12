@@ -140,8 +140,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
           # Check if tag already exists
-          if git rev-parse "${{ inputs.version }}" >/dev/null 2>&1; then
-            echo "❌ Tag ${{ inputs.version }} already exists"
+          if git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
+            echo "❌ Tag v${{ inputs.version }} already exists"
             exit 1
           fi
           
