@@ -189,6 +189,10 @@ templatia defines a simple error type for parsing and validation:
 
 - TemplateError::InconsistentValues { placeholder, first_value, second_value }
   - Emitted when the same placeholder appears multiple times with conflicting parsed values
+- TemplateError::ParseToType { placeholder, value, type_name }
+  - Parse error when the value cannot be parsed to the specified type
+- TemplateError::UnexpectedInput { expected_next_literal, remaining_text }
+  - Input string literal does not match the specified template
 - TemplateError::Parse(String)
   - Generic parse error message
 

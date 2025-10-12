@@ -188,6 +188,10 @@ templatia は解析や検証に関するシンプルなエラー型を提供し�
 
 - TemplateError::InconsistentValues { placeholder, first_value, second_value }
   - 同一プレースホルダが複数回現れた際に、解析された値が矛盾している場合に発生します
+- TemplateError::ParseToType { placeholder, value, type_name }
+  - 構造体によって定義されたフィールドの型へのパースができない場合に発生します
+- TemplateError::UnexpectedInput { expected_next_literal, remaining_text }
+  - 入力の文字列の解析において、placeholder以外の部分のパースで失敗した場合に発生します
 - TemplateError::Parse(String)
   - 一般的な解析エラーを表すメッセージ
 
