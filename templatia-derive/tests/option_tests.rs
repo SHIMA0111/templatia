@@ -5,7 +5,6 @@ use templatia::{Template, TemplateError};
 mod basic_option_tests {
     use super::*;
 
-
     #[test]
     fn option_field_present_in_template() {
         #[derive(Template, Debug, PartialEq)]
@@ -132,7 +131,7 @@ mod basic_option_tests {
         let with_none = OptionalValue { value: None };
         let _template = with_none.render_string();
         // The None value will be serialized as empty string or similar
-        
+
         // But parsing from a valid template should give Some
         let parsed = OptionalValue::from_str("value=test").unwrap();
         assert_eq!(parsed.value, Some("test".into()));
@@ -232,14 +231,14 @@ mod option_type_tests {
         }
 
         let instance = OptionalFloats {
-            f32_val: Some(3.14),
+            f32_val: Some(std::f32::consts::PI),
             f64_val: Some(std::f64::consts::E),
         };
 
         let template = instance.render_string();
         let parsed = OptionalFloats::from_str(&template).unwrap();
-        
-        assert!((parsed.f32_val.unwrap() - 3.14).abs() < 1e-5);
+
+        assert!((parsed.f32_val.unwrap() - std::f32::consts::PI).abs() < 1e-5);
         assert!((parsed.f64_val.unwrap() - std::f64::consts::E).abs() < 1e-10);
     }
 }
@@ -276,7 +275,7 @@ mod option_complex_tests {
         }
 
         let result = DuplicateCheck::from_str("a=first, b=second");
-        
+
         match result {
             Err(TemplateError::InconsistentValues {
                 placeholder,
@@ -367,7 +366,10 @@ mod option_complex_tests {
     #[test]
     fn option_json_like_format() {
         #[derive(Template, Debug, PartialEq)]
-        #[templatia(template = r#"{{"name": "{name}", "age": {age}}}"#, allow_missing_placeholders)]
+        #[templatia(
+            template = r#"{{"name": "{name}", "age": {age}}}"#,
+            allow_missing_placeholders
+        )]
         struct OptionalPerson {
             name: String,
             age: Option<u32>,
@@ -433,7 +435,7 @@ mod option_roundtrip_tests {
 
         let template1 = original.render_string();
         let parsed1 = WithOptional::from_str(&template1).unwrap();
-        
+
         assert_eq!(parsed1.id, 42);
         assert_eq!(parsed1.optional_field, None);
 
@@ -480,12 +482,18 @@ mod option_error_tests {
             port: Option<u16>,
         }
 
-        // New behavior: invalid values for Option<T> become None instead of error
+        // Invalid values for Option<T> now surface as ParseToType errors for clearer diagnostics
         let result = OptionalPort::from_str("port=invalid");
         match result {
             Ok(_) => panic!("Expected Parse error, got Ok"),
-            Err(TemplateError::Parse(msg)) => {
-                assert!(msg.contains("Failed to parse field \"port\""));
+            Err(TemplateError::ParseToType {
+                placeholder,
+                value,
+                type_name,
+            }) => {
+                assert_eq!(placeholder, "port");
+                assert_eq!(value, "invalid");
+                assert_eq!(type_name, "Option<u16>");
             }
             other => panic!("Expected Parse error, got: {other:?}"),
         }
@@ -500,10 +508,16 @@ mod option_error_tests {
         }
 
         let result = OptionalFlag::from_str("flag=maybe");
-        
+
         match result {
-            Err(TemplateError::Parse(msg)) => {
-                assert!(msg.contains("Failed to parse field \"flag\""));
+            Err(TemplateError::ParseToType {
+                placeholder,
+                value,
+                type_name,
+            }) => {
+                assert_eq!(placeholder, "flag");
+                assert_eq!(value, "maybe");
+                assert_eq!(type_name, "Option<bool>");
             }
             other => panic!("Expected Parse error, got: {other:?}"),
         }
@@ -560,7 +574,7 @@ mod option_mixed_tests {
 
         let template = instance.render_string();
         let parsed = AllOptional::from_str(&template).unwrap();
-        
+
         assert_eq!(parsed.a, Some("value".into()));
         assert_eq!(parsed.b, None);
         assert_eq!(parsed.c, None);
@@ -764,7 +778,11 @@ mod empty_str_option_not_none_tests {
     #[test]
     fn attribute_with_missing_placeholders() {
         #[derive(Template, Debug, PartialEq)]
-        #[templatia(template = "a={a}", allow_missing_placeholders, empty_str_option_not_none)]
+        #[templatia(
+            template = "a={a}",
+            allow_missing_placeholders,
+            empty_str_option_not_none
+        )]
         struct WithMissing {
             a: Option<String>,
             b: Option<String>,

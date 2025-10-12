@@ -19,19 +19,23 @@ mod manual_implementation_tests {
             if !s.starts_with('(') || !s.ends_with(')') {
                 return Err(TemplateError::Parse("Expected format: (x, y)".to_string()));
             }
-            
-            let inner = &s[1..s.len()-1];
+
+            let inner = &s[1..s.len() - 1];
             let parts: Vec<&str> = inner.split(", ").collect();
-            
+
             if parts.len() != 2 {
-                return Err(TemplateError::Parse("Expected two comma-separated values".to_string()));
+                return Err(TemplateError::Parse(
+                    "Expected two comma-separated values".to_string(),
+                ));
             }
-            
-            let x = parts[0].parse().map_err(|_|
-                TemplateError::Parse("Failed to parse x coordinate".to_string()))?;
-            let y = parts[1].parse().map_err(|_|
-                TemplateError::Parse("Failed to parse y coordinate".to_string()))?;
-            
+
+            let x = parts[0]
+                .parse()
+                .map_err(|_| TemplateError::Parse("Failed to parse x coordinate".to_string()))?;
+            let y = parts[1]
+                .parse()
+                .map_err(|_| TemplateError::Parse("Failed to parse y coordinate".to_string()))?;
+
             Ok(Point(x, y))
         }
     }
@@ -86,17 +90,22 @@ mod manual_implementation_tests {
         fn from_str(s: &str) -> Result<Self, Self::Error> {
             let parts: Vec<&str> = s.split(',').collect();
             if parts.len() != 2 {
-                return Err(TemplateError::Parse("Expected format: server=name,port=number".to_string()));
+                return Err(TemplateError::Parse(
+                    "Expected format: server=name,port=number".to_string(),
+                ));
             }
 
-            let name = parts[0].strip_prefix("server=")
+            let name = parts[0]
+                .strip_prefix("server=")
                 .ok_or_else(|| TemplateError::Parse("Missing server= prefix".to_string()))?
                 .to_string();
-                
-            let port_str = parts[1].strip_prefix("port=")
+
+            let port_str = parts[1]
+                .strip_prefix("port=")
                 .ok_or_else(|| TemplateError::Parse("Missing port= prefix".to_string()))?;
-                
-            let port = port_str.parse::<u16>()
+
+            let port = port_str
+                .parse::<u16>()
                 .map_err(|_| TemplateError::Parse("Invalid port number".to_string()))?;
 
             Ok(ServerConfig { name, port })
@@ -105,7 +114,10 @@ mod manual_implementation_tests {
 
     #[test]
     fn server_config_manual_implementation() {
-        let config = ServerConfig { name: "web01".to_string(), port: 8080 };
+        let config = ServerConfig {
+            name: "web01".to_string(),
+            port: 8080,
+        };
         let template = config.render_string();
         assert_eq!(template, "server=web01,port=8080");
 
@@ -153,11 +165,14 @@ mod manual_implementation_tests {
         fn from_str(s: &str) -> Result<Self, Self::Error> {
             let parts: Vec<&str> = s.splitn(2, '=').collect();
             if parts.len() != 2 {
-                return Err(TemplateError::Parse("Expected key=value format".to_string()));
+                return Err(TemplateError::Parse(
+                    "Expected key=value format".to_string(),
+                ));
             }
 
             let key = parts[0].to_string();
-            let value = parts[1].parse::<T>()
+            let value = parts[1]
+                .parse::<T>()
                 .map_err(|e| TemplateError::Parse(format!("Failed to parse value: {}", e)))?;
 
             Ok(KeyValue { key, value })
@@ -166,7 +181,10 @@ mod manual_implementation_tests {
 
     #[test]
     fn generic_key_value_string() {
-        let config = KeyValue { key: "name".to_string(), value: "test".to_string() };
+        let config = KeyValue {
+            key: "name".to_string(),
+            value: "test".to_string(),
+        };
         assert_eq!(config.render_string(), "name=test");
 
         let parsed = KeyValue::<String>::from_str("title=hello world").unwrap();
@@ -176,7 +194,10 @@ mod manual_implementation_tests {
 
     #[test]
     fn generic_key_value_numeric() {
-        let config = KeyValue { key: "timeout".to_string(), value: 30u32 };
+        let config = KeyValue {
+            key: "timeout".to_string(),
+            value: 30u32,
+        };
         assert_eq!(config.render_string(), "timeout=30");
 
         let parsed = KeyValue::<u32>::from_str("retry=5").unwrap();
@@ -186,12 +207,15 @@ mod manual_implementation_tests {
 
     #[test]
     fn generic_key_value_boolean() {
-        let config = KeyValue { key: "enabled".to_string(), value: true };
+        let config = KeyValue {
+            key: "enabled".to_string(),
+            value: true,
+        };
         assert_eq!(config.render_string(), "enabled=true");
 
         let parsed = KeyValue::<bool>::from_str("debug=false").unwrap();
         assert_eq!(parsed.key, "debug");
-        assert_eq!(parsed.value, false);
+        assert!(!parsed.value);
     }
 
     #[test]
@@ -231,7 +255,9 @@ mod manual_implementation_tests {
 
         fn from_str(s: &str) -> Result<Self, Self::Error> {
             if let Some(value) = s.strip_prefix("custom:") {
-                Ok(CustomConfig { value: value.to_string() })
+                Ok(CustomConfig {
+                    value: value.to_string(),
+                })
             } else {
                 Err(CustomError("Missing custom: prefix".to_string()))
             }
@@ -240,7 +266,9 @@ mod manual_implementation_tests {
 
     #[test]
     fn custom_error_type() {
-        let config = CustomConfig { value: "test".to_string() };
+        let config = CustomConfig {
+            value: "test".to_string(),
+        };
         assert_eq!(config.render_string(), "custom:test");
 
         let parsed = CustomConfig::from_str("custom:hello").unwrap();
@@ -248,7 +276,10 @@ mod manual_implementation_tests {
 
         let result = CustomConfig::from_str("invalid");
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), "Custom error: Missing custom: prefix");
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Custom error: Missing custom: prefix"
+        );
     }
 }
 
@@ -301,7 +332,9 @@ mod manual_implementation_edge_cases {
 
         fn from_str(s: &str) -> Result<Self, Self::Error> {
             if s.is_empty() {
-                Ok(Empty { _phantom: std::marker::PhantomData })
+                Ok(Empty {
+                    _phantom: std::marker::PhantomData,
+                })
             } else {
                 Err(TemplateError::Parse("Expected empty string".to_string()))
             }
@@ -310,7 +343,9 @@ mod manual_implementation_edge_cases {
 
     #[test]
     fn empty_template_implementation() {
-        let empty = Empty { _phantom: std::marker::PhantomData };
+        let empty = Empty {
+            _phantom: std::marker::PhantomData,
+        };
         assert_eq!(empty.render_string(), "");
 
         let parsed = Empty::from_str("").unwrap();
@@ -335,22 +370,29 @@ mod manual_implementation_edge_cases {
 
         fn from_str(s: &str) -> Result<Self, Self::Error> {
             if let Some((outer_part, inner_part)) = s.split_once(':') {
-                if let Some(inner_content) = inner_part.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
+                if let Some(inner_content) = inner_part
+                    .strip_prefix('[')
+                    .and_then(|s| s.strip_suffix(']'))
+                {
                     let inner = if inner_content.is_empty() {
                         Vec::new()
                     } else {
                         inner_content.split(',').map(|s| s.to_string()).collect()
                     };
-                    
+
                     Ok(ComplexNested {
                         outer: outer_part.to_string(),
                         inner,
                     })
                 } else {
-                    Err(TemplateError::Parse("Invalid inner format, expected [...]".to_string()))
+                    Err(TemplateError::Parse(
+                        "Invalid inner format, expected [...]".to_string(),
+                    ))
                 }
             } else {
-                Err(TemplateError::Parse("Expected outer:inner format".to_string()))
+                Err(TemplateError::Parse(
+                    "Expected outer:inner format".to_string(),
+                ))
             }
         }
     }
@@ -361,7 +403,7 @@ mod manual_implementation_edge_cases {
             outer: "test".to_string(),
             inner: vec!["a".to_string(), "b".to_string(), "c".to_string()],
         };
-        
+
         assert_eq!(complex.render_string(), "test:[a,b,c]");
 
         let parsed = ComplexNested::from_str("hello:[x,y,z]").unwrap();

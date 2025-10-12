@@ -49,8 +49,14 @@ fn parse_error_is_reported_as_template_error_parse() {
     let bad = "host=local\nport=not_a_number";
     let err = Cfg::from_str(bad).expect_err("expected parse error");
     match err {
-        templatia::TemplateError::Parse(msg) => {
-            assert!(msg.contains("Failed to parse field \"port\""));
+        templatia::TemplateError::ParseToType {
+            placeholder,
+            value,
+            type_name,
+        } => {
+            assert_eq!(placeholder, "port");
+            assert_eq!(value, "not_a_number");
+            assert_eq!(type_name, "u16");
         }
         other => panic!("unexpected error: {other:?}"),
     }

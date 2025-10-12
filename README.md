@@ -1,3 +1,9 @@
+[![CI](https://github.com/SHIMA0111/templatia/actions/workflows/ci.yml/badge.svg)](https://github.com/SHIMA0111/templatia/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/templatia.svg)](https://crates.io/crates/templatia)
+[![Docs.rs](https://docs.rs/templatia/badge.svg)](https://docs.rs/templatia)
+[![Crates.io MSRV (version)](https://img.shields.io/crates/msrv/templatia/0.0.3)](https://crates.io/crates/templatia)
+[![Downloads](https://img.shields.io/crates/d/templatia.svg)](https://crates.io/crates/templatia)
+
 # templatia
 
 A template-based serialization/deserialization library that enables seamless bidirectional conversion between Rust structs and text according to user-defined templates.
@@ -37,7 +43,7 @@ cargo add templatia --features derive
 
 ```toml
 [dependencies]
-templatia = { version = "0.0.2", features = ["derive"] }
+templatia = { version = "0.0.3", features = ["derive"] }
 ```
 
 ```rust
@@ -183,6 +189,10 @@ templatia defines a simple error type for parsing and validation:
 
 - TemplateError::InconsistentValues { placeholder, first_value, second_value }
   - Emitted when the same placeholder appears multiple times with conflicting parsed values
+- TemplateError::ParseToType { placeholder, value, type_name }
+  - Parse error when the value cannot be parsed to the specified type
+- TemplateError::UnexpectedInput { expected_next_literal, remaining_text }
+  - Input string literal does not match the specified template
 - TemplateError::Parse(String)
   - Generic parse error message
 
@@ -210,7 +220,8 @@ templatia defines a simple error type for parsing and validation:
   - [x] Option<T>: default to `None` when the placeholder is absent (automatic support without requiring `allow_missing_placeholders`)
   - [x] Remove `type Struct` from `Template` trait
 - 0.0.3
-  - [ ] Enrich error handling and warnings (clearer diagnostics and coverage)
+  - [x] Enrich error handling (clearer diagnostics and coverage through compile-fail tests)
+  - [x] Internal refactoring to prepare for future feature implementations
 - 0.0.4
   - [ ] Declarative templates for field collections such as `Vec`, `HashMap`, and `HashSet`
   - [ ] Add `container` attribute to increase flexibility at the parent structure level

@@ -1,0 +1,14 @@
+error: placeholder "first" and "second" are consecutive. these cause ambiguity to parsing bound.
+       "first" is `String` type data. Consecutive allows only: [char, bool]
+ --> tests/compile_fail/consecutive_disallowed.rs:3:10
+  |
+3 | #[derive(Template)]
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `Template` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0601]: `main` function not found in crate `$CRATE`
+ --> tests/compile_fail/consecutive_disallowed.rs:8:2
+  |
+8 | }
+  |  ^ consider adding a `main` function to `$DIR/tests/compile_fail/consecutive_disallowed.rs`

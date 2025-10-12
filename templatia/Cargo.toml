@@ -16,7 +16,7 @@ documentation = { workspace = true }
 [dependencies]
 thiserror = "2"
 
-templatia-derive = { version = "0.0.2", path = "../templatia-derive", optional = true }
+templatia-derive = { version = "0.0.3", path = "../templatia-derive", optional = true }
 chumsky = { version = "0.11", optional = true }
 
 [features]

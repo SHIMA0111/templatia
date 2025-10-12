@@ -17,8 +17,13 @@
 //! Add templatia to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! templatia = { version = "0.0.1", features = ["derive"] }
+//! templatia = { version = "0.0.3", features = ["derive"] }
 //! ```
+//!
+//! ## Related Crates
+//!
+//! - templatia-derive: Procedural macro crate providing #[derive(Template)].
+//!   Docs: <https://docs.rs/templatia-derive>
 //!
 //! ### Using the Derive Macro (Recommended)
 //!
@@ -99,7 +104,7 @@
 //! assert!(result.is_err());
 //! ```
 //!
-//! #### Option<T> Support
+//! #### `Option<T>` Support
 //! Fields with `Option<T>` type automatically default to `None` when the placeholder is not in the template:
 //!
 //! ```rust
@@ -265,7 +270,7 @@
 //!
 //! // Parse error example
 //! match Config::from_str("port=not_a_number") {
-//!     Err(TemplateError::Parse(msg)) => println!("Parse failed: {}", msg),
+//!     Err(TemplateError::ParseToType { placeholder, value, type_name }) => println!("Parse failed: placeholder '{}' with value '{}' could not be parsed as type '{}'", placeholder, value, type_name),
 //!     _ => unreachable!(),
 //! }
 //!
@@ -293,7 +298,7 @@
 //! When enabled, you can use:
 //! ```toml
 //! [dependencies]
-//! templatia = { version = "0.0.1", features = ["derive"] }
+//! templatia = { version = "0.0.3", features = ["derive"] }
 //! ```
 //!
 //! This feature is **recommended** for most users as it significantly simplifies usage:
@@ -432,7 +437,10 @@ pub use templatia_derive::Template;
 /// let parsed = KeyValue::<u32>::from_str("retry=5").unwrap();
 /// assert_eq!(parsed.value, 5);
 /// ```
-pub trait Template where Self: Sized {
+pub trait Template
+where
+    Self: Sized,
+{
     /// The concrete error type for template parsing or formatting failures.
     ///
     /// This should typically be `TemplateError` for most implementations, but custom
@@ -480,7 +488,7 @@ pub trait Template where Self: Sized {
     ///
     /// # Parameters
     ///
-    /// * `s` - The source string to parse. Should match the expected template format.
+    /// - s: The source string to parse. Should match the expected template format.
     ///
     /// # Returns
     ///
@@ -490,10 +498,10 @@ pub trait Template where Self: Sized {
     /// # Errors
     ///
     /// Returns `Self::Error` when:
-    /// - The string format doesn't match the expected template
-    /// - Field values cannot be parsed to their target types
-    /// - Duplicate placeholders have inconsistent values
-    /// - Required placeholders are missing from the template
+    /// - Inconsistent duplicate placeholders are found (`TemplateError::InconsistentValues`).
+    /// - A field value fails to parse into its target type (`TemplateError::ParseToType`).
+    /// - The next expected literal in the template does not match the input (`TemplateError::UnexpectedInput`).
+    /// - Other parser failures occur and are aggregated into a single message (`TemplateError::Parse`).
     ///
     /// # Examples
     ///
@@ -514,8 +522,8 @@ pub trait Template where Self: Sized {
     ///
     /// // Error handling
     /// match Connection::from_str("host=localhost:invalid_port") {
-    ///     Err(TemplateError::Parse(msg)) => {
-    ///         println!("Parsing failed: {}", msg);
+    ///     Err(TemplateError::ParseToType { placeholder, value, type_name }) => {
+    ///         println!("Failed to parse {}: the value `{}` cannot parse to `{}`", placeholder, value, type_name);
     ///     }
     ///     _ => panic!("Expected parse error"),
     /// }
@@ -524,6 +532,16 @@ pub trait Template where Self: Sized {
 }
 
 /// Errors produced by templatia operations.
+///
+/// # Fields
+/// - InconsistentValues: The same placeholder appears multiple times with conflicting values.
+/// - ParseToType: A captured value cannot be parsed into the target field type.
+/// - UnexpectedInput: The remaining input does not match the next expected literal from the template.
+/// - Parse: Other parser failures aggregated into a single message string.
+///
+/// # Notes
+/// - These errors are produced at runtime when parsing strings with `Template::from_str`.
+/// - With the `derive` feature, the procedural macro maps internal parser errors to these variants.
 ///
 #[derive(Debug, thiserror::Error)]
 pub enum TemplateError {
@@ -534,12 +552,36 @@ pub enum TemplateError {
     /// - first_value: The first observed value.
     /// - second_value: The conflicting later value.
     #[error(
-        "Inconsistent values for placeholder '{placeholder}': found '{first_value}', and after face '{second_value}'"
+        "Inconsistent values for placeholder '{placeholder}': found '{first_value}', and afterwards '{second_value}'"
     )]
     InconsistentValues {
         placeholder: String,
         first_value: String,
         second_value: String,
+    },
+    /// A value for a placeholder failed to parse into the declared field type.
+    ///
+    /// # Parameters
+    /// - placeholder: The placeholder name.
+    /// - value: The raw text captured from the input.
+    /// - type_name: The destination type name.
+    #[error(
+        "Cannot parse the placeholder '{placeholder}' with value '{value}' to type '{type_name}', please check the type compatibility"
+    )]
+    ParseToType {
+        placeholder: String,
+        value: String,
+        type_name: String,
+    },
+    /// The next expected literal segment from the template was not found in the input.
+    ///
+    /// # Parameters
+    /// - expected_next_literal: The literal text that should have appeared next.
+    /// - remaining_text: The remaining input that failed to match the expected literal.
+    #[error("Template defines '{expected_next_literal}' but not found it in '{remaining_text}'")]
+    UnexpectedInput {
+        expected_next_literal: String,
+        remaining_text: String,
     },
     /// A generic parse error message aggregated from the parser.
     #[error("Parse error: {0}")]

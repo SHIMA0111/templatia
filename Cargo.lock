@@ -303,7 +303,7 @@ checksum = "1ac9aa371f599d22256307c24a9d748c041e548cbf599f35d890f9d365361790"
 
 [[package]]
 name = "templatia"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "chumsky",
  "templatia-derive",
@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "templatia-derive"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "darling",
  "proc-macro2",
