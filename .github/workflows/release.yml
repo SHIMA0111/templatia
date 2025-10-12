@@ -74,10 +74,9 @@ jobs:
 
       - name: Verify Git branch
         run: |
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          if [ "$CURRENT_BRANCH" != "main" ]; then
+          if [ "${{ github.ref_name }}" != "main" ]; then
             echo "❌ ERROR: This workflow can only be run from the main branch"
-            echo "Current branch: $CURRENT_BRANCH"
+            echo "Current branch: ${{ github.ref_name }}"
             exit 1
           fi
           echo "✅ Running on main branch"
