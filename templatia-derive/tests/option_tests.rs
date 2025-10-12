@@ -482,7 +482,7 @@ mod option_error_tests {
             port: Option<u16>,
         }
 
-        // New behavior: invalid values for Option<T> become None instead of error
+        // Invalid values for Option<T> now surface as ParseToType errors for clearer diagnostics
         let result = OptionalPort::from_str("port=invalid");
         match result {
             Ok(_) => panic!("Expected Parse error, got Ok"),

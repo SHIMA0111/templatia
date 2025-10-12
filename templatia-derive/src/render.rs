@@ -33,7 +33,7 @@ pub(super) fn generate_format_string_args(
                 // The token stream indicates &self.x or &self.y.
                 // Please note: the #field_ident is not `field_ident` but `x` or `y`.
                 if option_fields.contains(&&field_ident) {
-                    Some( quote! { &self.#field_ident.as_ref().map(|v| v.to_string()).unwrap_or("".to_string()) } )
+                    Some( quote! { &self.#field_ident.as_ref().map(|v| v.to_string()).unwrap_or_else(|| String::new()) } )
                 } else {
                     Some( quote! { &self.#field_ident } )
                 }
