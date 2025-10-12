@@ -1,0 +1,184 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 0.1.0)'
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run (no actual release)"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  check-permissions:
+    runs-on: ubuntu-latest
+    outputs:
+      is_code_owner: ${{ steps.check-permissions.outputs.is_code_owner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check if user has ownership of code
+        id: check-permissions
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: context.actor
+              });
+              
+              console.log(`User: ${context.actor}`);
+              console.log(`User is ${data.permission} of the repository`);
+            
+              const isCodeOwner = data.permission === 'admin' || data.permission === 'maintain';
+            
+              core.setOutput('is_code_owner', isCodeOwner);
+            
+              if (isCodeOwner) {
+                core.info(`✅ ${context.actor} is a code owner(${data.permission}) - approvals are not required`);
+              } else {
+                core.warning(`⚠️ ${context.actor} is not a code owner(${data.permission}) - approvals are required`);
+              }
+            } catch (error) {
+              core.setFailed(`Failed to check permissions: ${error.message}`);
+            }
+
+  awaits-approval:
+    runs-on: ubuntu-latest
+    needs: check-permissions
+    if: ${{ needs.check-permissions.outputs.is_code_owner == 'false' }}
+    environment:
+      name: release-approval
+    steps:
+      - name: Waiting for approval
+        run: echo "Waiting for approval from a code owner..."
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [check-permissions, awaits-approval]
+    if: needs.check-permissions.outputs.is_code_owner == 'true' || needs.awaits-approval.result == 'success'
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Fetch all history for all tags and branches
+          fetch-depth: 0
+
+      - name: Verify Git branch
+        run: |
+          if [ "${{ github.ref_name }}" != "main" ]; then
+            echo "❌ ERROR: This workflow can only be run from the main branch"
+            echo "Current branch: ${{ github.ref_name }}"
+            exit 1
+          fi
+          echo "✅ Running on main branch"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Display run mode
+        run: |
+          if [ "${{ inputs.dry_run }}" == "true" ]; then
+            echo "🔍 DRY RUN MODE - No actual changes will be made"
+          else
+            echo "🚀 RELEASE MODE - Changes will be published"
+          fi
+          echo "Executor: ${{ github.actor }}"
+          echo "Is code owner: ${{ needs.check-permissions.outputs.is_code_owner }}"
+          rustc --version
+          cargo --version
+
+      - name: Verify version
+        run: |
+          PKG_VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.manifest_path | endswith("/templatia/Cargo.toml")) | .version')
+          echo "Templatia pkg version: $PKG_VERSION"
+          echo "Version to release: ${{ inputs.version }}"
+          if [ -z "$PKG_VERSION" ]; then
+            echo "❌ Could not determine Templatia package version from cargo metadata"
+            exit 1
+          fi
+          if [ "$PKG_VERSION" != "${{ inputs.version }}" ]; then
+            echo "❌ Package version mismatch: $PKG_VERSION != ${{ inputs.version }}"
+            exit 1
+          fi
+          echo "✅ Version verified: ${{ inputs.version }}"
+
+      - name: Run tests
+        run: cargo test --all-features
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Check documentation
+        run: cargo doc --no-deps --document-private-items
+
+      - name: Build release
+        run: cargo build --release
+
+      - name: Dry-run check for crates.io
+        if: inputs.dry_run == true
+        run: |
+          echo "🔍 Performing dry-run publish check..."
+          cargo publish --dry-run --token ${{ secrets.CARGO_TOKEN }} --workspace
+
+      - name: Create Git tag
+        if: inputs.dry_run == false
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Check if tag already exists
+          if git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
+            echo "❌ Tag v${{ inputs.version }} already exists"
+            exit 1
+          fi
+          
+          git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
+          git push origin "v${{ inputs.version }}"
+          echo "✅ Tag ${{ inputs.version }} created and pushed"
+
+      - name: Create GitHub release
+        if: inputs.dry_run == false
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ inputs.version }}
+          release_name: v${{ inputs.version }}
+          draft: false
+          prerelease: false
+          body_path: CHANGELOG.md
+
+      - name: Publish to crates.io
+        if: inputs.dry_run == false
+        run: |
+          echo "📦 Publishing to crates.io..."
+          cargo publish --token ${{ secrets.CARGO_TOKEN }} --workspace
+          echo "✅ Published successfully"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Version: ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "Dry run: ${{ inputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
+          echo "Executor: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "Is code owner: ${{ needs.check-permissions.outputs.is_code_owner }}" >> $GITHUB_STEP_SUMMARY
+          echo "Cargo version: $(cargo --version)" >> $GITHUB_STEP_SUMMARY
+          echo "## Release Summary"
