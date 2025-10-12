@@ -103,11 +103,15 @@ jobs:
 
       - name: Verify version
         run: |
-          CARGO_VERSION=$(grep -oP '(?<=version = ")[^"]+' Cargo.toml)
-          echo "Cargo version: $CARGO_VERSION"
+          PKG_VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.manifest_path | endswith("/templatia/Cargo.toml")) | .version')
+          echo "Templatia pkg version: $PKG_VERSION"
           echo "Version to release: ${{ inputs.version }}"
-          if [ "$CARGO_VERSION" != "${{ inputs.version }}" ]; then
-            echo "❌ Cargo version does not match the version to release"
+          if [ -z "$PKG_VERSION" ]; then
+            echo "❌ Could not determine Templatia package version from cargo metadata"
+            exit 1
+          fi
+          if [ "$PKG_VERSION" != "${{ inputs.version }}" ]; then
+            echo "❌ Package version mismatch: $PKG_VERSION != ${{ inputs.version }}"
             exit 1
           fi
           echo "✅ Version verified: ${{ inputs.version }}"
