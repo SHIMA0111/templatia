@@ -4,8 +4,7 @@
 
 As `templatia` is in its early stages of development (v0.0.x), only the latest version is actively supported with security updates. 
 We encourage all users to stay on the most recent release.
-In the security update will be released as the next 0.0.x version. 
-And the previous version which reported the vulnerability will be marked as yanked on crates.io.
+Security fixes ship in the next 0.0.x release, and the version reported as vulnerable will be yanked on crates.io.
 
 ## Reporting a Vulnerability
 
