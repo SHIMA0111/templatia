@@ -1,5 +1,5 @@
 use crate::error::generate_not_found_placeholder_compile_error;
-use crate::fields::Fields;
+use crate::fields::{FieldKind, Fields};
 use crate::inv::parser::generate_parser_from_segments;
 use crate::inv::validator::validate_template_safety;
 use crate::parser::TemplateSegments;
@@ -106,28 +106,53 @@ pub(crate) fn generate_str_parser(
 
     let dup_bases = dup_checks.iter().map(|(base, _, name)| {
         let ident = syn::Ident::new(name, proc_macro2::Span::call_site());
-        if fields.option_fields().contains_key(&ident) {
-            quote! {
+        match fields.get_field_kind(&ident) {
+            Some(FieldKind::Option(_)) => quote! {
                 #base
                     .as_ref()
                     .map(|v| v.to_string())
                     .unwrap_or_default()
-            }
-        } else {
-            quote! { #base }
+            },
+            Some(FieldKind::Vec(_))
+            | Some(FieldKind::BTreeSet(_)) => quote! {
+                #base
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            },
+            Some(FieldKind::HashSet(_)) => quote! {
+                #base
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .join(",")
+            },
+            _ => quote! { #base },
         }
     });
     let dup_dups = dup_checks.iter().map(|(_, dup, name)| {
         let ident = syn::Ident::new(name, proc_macro2::Span::call_site());
-        if fields.option_fields().contains_key(&ident) {
-            quote! {
+
+        match fields.get_field_kind(&ident) {
+            Some(FieldKind::Option(_)) => quote! {
                 #dup
                     .as_ref()
                     .map(|v| v.to_string())
                     .unwrap_or_default()
-            }
-        } else {
-            quote! { #dup }
+            },
+            Some(FieldKind::Vec(_))
+            | Some(FieldKind::HashSet(_))
+            | Some(FieldKind::BTreeSet(_)) => quote! {
+                #dup
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            },
+            _ => quote! { #dup },
         }
     });
 

@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.4-alpha.1] - 2025-11-02
+### Added
+- Limited collection support (alpha): `Vec<T>`, `HashSet<T>`, and `BTreeSet<T>` are now supported in templates.
+  - Representation: a single placeholder maps to a comma-separated list (e.g., `items={items}` with `items=a,b,c`).
+  - Empty segment parses as an empty collection.
+  - Duplicate placeholders must contain identical segment text.
+  - `HashSet<T>` and `BTreeSet<T>` parse from the list; `HashSet<T>` naturally de-duplicates.
+- Tests covering parsing, empty segments, duplicate placeholders, and error reporting for collections.
+
+### Changed
+- Updated README.md, README-ja.md, and crate-level rustdoc to document alpha collection support and installation guidance.
+
+### Notes
+- This is a pre-release for the upcoming `0.0.4`. The latest stable release remains `0.0.3`.
+
 ## [0.0.3] - 2025-10-11
 ### Added
 - New compile-fail tests for unsupported types (collections, maps, results, tuples) to improve diagnostics and prevent incorrect usage patterns.
