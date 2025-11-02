@@ -142,12 +142,19 @@ pub(crate) fn generate_str_parser(
                     .map(|v| v.to_string())
                     .unwrap_or_default()
             },
-            Some(FieldKind::Vec(_))
-            | Some(FieldKind::HashSet(_))
-            | Some(FieldKind::BTreeSet(_)) => quote! {
+            Some(FieldKind::Vec(_)) | Some(FieldKind::BTreeSet(_)) => quote! {
                 #dup
                     .iter()
                     .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            },
+            Some(FieldKind::HashSet(_)) => quote! {
+                #dup
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
                     .collect::<Vec<_>>()
                     .join(",")
             },
