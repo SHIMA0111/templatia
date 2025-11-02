@@ -1,11 +1,12 @@
 use crate::parser::TemplateSegments;
 use proc_macro2::TokenStream;
 use quote::quote;
-use std::collections::HashSet;
+use crate::error::{generate_not_found_placeholder_compile_error, generate_unsupported_compile_error};
+use crate::fields::{FieldKind, Fields};
 
 pub(super) fn generate_format_string_args(
     segments: &[TemplateSegments<'_>],
-    option_fields: &HashSet<&syn::Ident>,
+    fields: &Fields,
 ) -> (String, Vec<TokenStream>) {
     // Generate format string like "key = {}, key2 = {}"
     let format_string = segments
@@ -32,10 +33,38 @@ pub(super) fn generate_format_string_args(
                 // then the field_ident is `x` or `y`.
                 // The token stream indicates &self.x or &self.y.
                 // Please note: the #field_ident is not `field_ident` but `x` or `y`.
-                if option_fields.contains(&&field_ident) {
-                    Some( quote! { &self.#field_ident.as_ref().map(|v| v.to_string()).unwrap_or_else(|| String::new()) } )
-                } else {
-                    Some( quote! { &self.#field_ident } )
+                match fields.get_field_kind(&field_ident) {
+                    Some(ty) => match ty {
+                        FieldKind::Option(_) => {
+                            Some(quote! {
+                                &self.#field_ident.as_ref().map(|v| v.to_string()).unwrap_or_else(|| String::new())
+                            })
+                        },
+                        FieldKind::Vec(_) => {
+                            Some(quote! {
+                                &self.#field_ident.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",")
+                            })
+                        },
+                        FieldKind::HashSet(_) => {
+                            Some(quote! {
+                                &self.#field_ident.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",")
+                            })
+                        },
+                        FieldKind::BTreeSet(_) => {
+                            Some(quote! {
+                                &self.#field_ident.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",")
+                            })
+                        },
+                        FieldKind::Primitive(_) => {
+                            Some(quote! {
+                                &self.#field_ident
+                            })
+                        },
+                        _ => {
+                            Some(generate_unsupported_compile_error(&field_ident, ty))
+                        },
+                    },
+                    _ => Some(generate_not_found_placeholder_compile_error("struct", name))
                 }
             },
             TemplateSegments::Literal(_) => None,

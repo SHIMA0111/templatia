@@ -151,6 +151,113 @@ fn generate_field_parser(
                     })
             }
         }
+        FieldKind::Vec(ty) => {
+            let inner_parser = generate_str_parser(next_literal);
+
+            quote! {
+                #inner_parser
+                    .try_map(|s: &str, span| {
+                        let mut vec = Vec::new();
+                        if s.is_empty() {
+                            Ok(vec)
+                        } else {
+                            let values = s.split(',');
+
+                            for value in values {
+                                match value.parse::<#ty>() {
+                                    Ok(v) => {
+                                        vec.push(v);
+                                    },
+                                    Err(_) => {
+                                        // I'm not sure if this way is the best for the collection parser.
+                                        // However, this way works for now.
+                                        return Err(chumsky::error::Rich::<char>::custom(
+                                            span,
+                                            format!(
+                                                "__templatia_parse_type__:{}::{}::{}",
+                                                stringify!(#field_name).#colon_escaper,
+                                                s.#colon_escaper,
+                                                #field_type_str.#colon_escaper,
+                                            )
+                                        ))
+                                    }
+                                }
+                            }
+                            Ok(vec)
+                        }
+                    })
+            }
+        }
+        FieldKind::HashSet(ty) => {
+            let inner_parser = generate_str_parser(next_literal);
+
+            quote! {
+                #inner_parser
+                    .try_map(|s: &str, span| {
+                        let mut set = std::collections::HashSet::new();
+                        if s.is_empty() {
+                            Ok(set)
+                        } else {
+                            let values = s.split(',');
+
+                            for value in values {
+                                match value.parse::<#ty>() {
+                                    Ok(v) => {
+                                        set.insert(v);
+                                    },
+                                    Err(_) => {
+                                        return Err(chumsky::error::Rich::<char>::custom(
+                                            span,
+                                            format!(
+                                                "__templatia_parse_type__:{}::{}::{}",
+                                                stringify!(#field_name).#colon_escaper,
+                                                s.#colon_escaper,
+                                                #field_type_str.#colon_escaper,
+                                            )
+                                        ))
+                                    }
+                                }
+                            }
+                            Ok(set)
+                        }
+                    })
+            }
+        }
+        FieldKind::BTreeSet(ty) => {
+            let inner_parser = generate_str_parser(next_literal);
+
+            quote! {
+                #inner_parser
+                    .try_map(|s: &str, span| {
+                        let mut b_set = std::collections::BTreeSet::new();
+                        if s.is_empty() {
+                            Ok(b_set)
+                        } else {
+                            let values = s.split(',');
+
+                            for value in values {
+                                match value.parse::<#ty>() {
+                                    Ok(v) => {
+                                        b_set.insert(v);
+                                    },
+                                    Err(_) => {
+                                        return Err(chumsky::error::Rich::<char>::custom(
+                                            span,
+                                            format!(
+                                                "__templatia_parse_type__:{}::{}::{}",
+                                                stringify!(#field_name).#colon_escaper,
+                                                s.#colon_escaper,
+                                                #field_type_str.#colon_escaper,
+                                            )
+                                        ))
+                                    }
+                                }
+                            }
+                            Ok(b_set)
+                        }
+                    })
+            }
+        }
         FieldKind::Primitive(ty) => {
             let parser = generate_parser(ty, next_literal);
 
@@ -177,19 +284,7 @@ fn generate_field_parser(
 }
 
 fn generate_parser(field_type: &syn::Type, next_literal: Option<&str>) -> proc_macro2::TokenStream {
-    let base_parser = if let Some(next_lit) = next_literal {
-        quote! {
-            just::<&str, &str, chumsky::extra::Err<chumsky::error::Rich<char>>>(#next_lit)
-                .not()
-                .ignore_then(any())
-                .repeated()
-        }
-    } else {
-        quote! {
-            any::<&str, chumsky::extra::Err<chumsky::error::Rich<char>>>()
-                .repeated()
-        }
-    };
+    let base_parser = generate_base_parser(next_literal);
 
     match get_type_name(field_type).as_str() {
         "char" => quote! {
@@ -207,5 +302,28 @@ fn generate_parser(field_type: &syn::Type, next_literal: Option<&str>) -> proc_m
         _ => quote! {
             #base_parser.to_slice()
         },
+    }
+}
+
+fn generate_str_parser(next_literal: Option<&str>) -> proc_macro2::TokenStream {
+    let base_parser = generate_base_parser(next_literal);
+    quote! {
+        #base_parser.to_slice()
+    }
+}
+
+fn generate_base_parser(next_literal: Option<&str>) -> proc_macro2::TokenStream {
+    if let Some(next_lit) = next_literal {
+        quote! {
+            just::<&str, &str, chumsky::extra::Err<chumsky::error::Rich<char>>>(#next_lit)
+                .not()
+                .ignore_then(any())
+                .repeated()
+        }
+    } else {
+        quote! {
+            any::<&str, chumsky::extra::Err<chumsky::error::Rich<char>>>()
+                .repeated()
+        }
     }
 }
