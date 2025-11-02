@@ -192,7 +192,7 @@ The alpha pre-release 0.0.4-alpha.1 introduces limited collection support in tem
 - Representation: a single placeholder corresponds to a comma-separated list segment
   - Example template: `items={items}` matches inputs like `items=a,b,c`
 - Empty segment means an empty collection (`items=`)
-- Duplicate placeholders for the same field must have exactly the same segment text
+- Duplicate placeholders for the same field must have identical segment text
 - Error reporting uses `TemplateError::ParseToType` with `type_name` like `Vec<u32>`
 
 Example:

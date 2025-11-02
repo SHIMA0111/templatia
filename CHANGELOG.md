@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 - Limited collection support (alpha): `Vec<T>`, `HashSet<T>`, and `BTreeSet<T>` are now supported in templates.
   - Representation: a single placeholder maps to a comma-separated list (e.g., `items={items}` with `items=a,b,c`).
   - Empty segment parses as an empty collection.
-  - Duplicate placeholders must contain exactly the same segment text.
+  - Duplicate placeholders must contain identical segment text.
   - `HashSet<T>` and `BTreeSet<T>` parse from the list; `HashSet<T>` naturally de-duplicates.
 - Tests covering parsing, empty segments, duplicate placeholders, and error reporting for collections.
 
