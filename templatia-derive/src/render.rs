@@ -1,8 +1,10 @@
+use crate::error::{
+    generate_not_found_placeholder_compile_error, generate_unsupported_compile_error,
+};
+use crate::fields::{FieldKind, Fields};
 use crate::parser::TemplateSegments;
 use proc_macro2::TokenStream;
 use quote::quote;
-use crate::error::{generate_not_found_placeholder_compile_error, generate_unsupported_compile_error};
-use crate::fields::{FieldKind, Fields};
 
 pub(super) fn generate_format_string_args(
     segments: &[TemplateSegments<'_>],

@@ -54,7 +54,11 @@ fn vec_parse_error_invalid_element_reports_placeholder_and_type() {
     // "x" cannot parse to u32. Current implementation reports the whole segment value.
     let err = S::from_str("nums=1,2,x,4").expect_err("expected parse error");
     match err {
-        templatia::TemplateError::ParseToType { placeholder, value, type_name } => {
+        templatia::TemplateError::ParseToType {
+            placeholder,
+            value,
+            type_name,
+        } => {
             assert_eq!(placeholder, "nums");
             assert_eq!(value, "1,2,x,4");
             assert_eq!(type_name, "Vec<u32>");
@@ -78,7 +82,11 @@ fn vec_duplicate_placeholders_require_equal_segments() {
     // Inconsistent segments: error
     let bad = S::from_str("a=1,2,3;b=1,2,4").expect_err("expected inconsistency error");
     match bad {
-        templatia::TemplateError::InconsistentValues { placeholder, first_value, second_value } => {
+        templatia::TemplateError::InconsistentValues {
+            placeholder,
+            first_value,
+            second_value,
+        } => {
             assert_eq!(placeholder, "items");
             assert_eq!(first_value, "1,2,3");
             assert_eq!(second_value, "1,2,4");
@@ -97,8 +105,12 @@ fn hashset_string_parse_deduplicates() {
         tags: HashSet<String>,
     }
 
-    let parsed = S::from_str("tags=red,green,red,blue,green").expect("should parse HashSet<String>");
-    let expected: HashSet<String> = ["red", "green", "blue"].into_iter().map(|s| s.to_string()).collect();
+    let parsed =
+        S::from_str("tags=red,green,red,blue,green").expect("should parse HashSet<String>");
+    let expected: HashSet<String> = ["red", "green", "blue"]
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect();
     assert_eq!(parsed.tags, expected);
 }
 
@@ -124,7 +136,11 @@ fn hashset_parse_error_invalid_element() {
 
     let err = S::from_str("ids=1,2,x,3").expect_err("expected parse error");
     match err {
-        templatia::TemplateError::ParseToType { placeholder, value, type_name } => {
+        templatia::TemplateError::ParseToType {
+            placeholder,
+            value,
+            type_name,
+        } => {
             assert_eq!(placeholder, "ids");
             assert_eq!(value, "1,2,x,3");
             assert_eq!(type_name, "HashSet<u16>");
@@ -164,4 +180,3 @@ fn collections_not_in_template_default_when_allowed() {
     assert!(s.tags.is_empty());
     assert!(s.ord.is_empty());
 }
-

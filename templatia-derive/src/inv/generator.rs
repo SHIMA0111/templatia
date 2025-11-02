@@ -113,16 +113,16 @@ pub(crate) fn generate_str_parser(
                     .map(|v| v.to_string())
                     .unwrap_or_default()
             },
-            Some(FieldKind::Vec(_)) |
-            Some(FieldKind::HashSet(_)) |
-            Some(FieldKind::BTreeSet(_)) => quote! {
+            Some(FieldKind::Vec(_))
+            | Some(FieldKind::HashSet(_))
+            | Some(FieldKind::BTreeSet(_)) => quote! {
                 #base
                     .iter()
                     .map(|v| v.to_string())
                     .collect::<Vec<_>>()
                     .join(",")
             },
-            _ => quote! { #base }
+            _ => quote! { #base },
         }
     });
     let dup_dups = dup_checks.iter().map(|(_, dup, name)| {
@@ -135,16 +135,16 @@ pub(crate) fn generate_str_parser(
                     .map(|v| v.to_string())
                     .unwrap_or_default()
             },
-            Some(FieldKind::Vec(_)) |
-            Some(FieldKind::HashSet(_)) |
-            Some(FieldKind::BTreeSet(_)) => quote! {
+            Some(FieldKind::Vec(_))
+            | Some(FieldKind::HashSet(_))
+            | Some(FieldKind::BTreeSet(_)) => quote! {
                 #dup
                     .iter()
                     .map(|v| v.to_string())
                     .collect::<Vec<_>>()
                     .join(",")
             },
-            _ => quote! { #dup }
+            _ => quote! { #dup },
         }
     });
 

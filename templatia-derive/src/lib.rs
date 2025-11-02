@@ -185,10 +185,10 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
     for field in fields.used_fields_in_template(&placeholder_names) {
         if let Some(ident) = field.ident.as_ref() {
             match fields.get_field_kind(ident) {
-                Some(FieldKind::Option(ty)) |
-                Some(FieldKind::Vec(ty)) |
-                Some(FieldKind::HashSet(ty)) |
-                Some(FieldKind::BTreeSet(ty)) => {
+                Some(FieldKind::Option(ty))
+                | Some(FieldKind::Vec(ty))
+                | Some(FieldKind::HashSet(ty))
+                | Some(FieldKind::BTreeSet(ty)) => {
                     new_where_clause.predicates.push(syn::parse_quote! {
                         #ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq
                     });
@@ -209,7 +209,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
                     new_where_clause.predicates.push(syn::parse_quote! {
                         <#ty as ::std::str::FromStr>::Err: ::std::fmt::Display
                     });
-                },
+                }
                 Some(kind) => return generate_unsupported_compile_error(ident, kind).into(),
                 None => {
                     return generate_unsupported_compile_error(ident, &FieldKind::Unknown).into();
