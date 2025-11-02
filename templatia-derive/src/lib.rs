@@ -135,12 +135,6 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
 
     let fields = Fields::new(all_fields);
 
-    // let option_fields = fields
-    //     .option_fields()
-    //     .keys()
-    //     .copied()
-    //     .collect::<HashSet<_>>();
-
     let segments = match parse_template(&template) {
         Ok(segments) => segments,
         Err(e) => {
