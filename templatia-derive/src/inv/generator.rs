@@ -113,8 +113,7 @@ pub(crate) fn generate_str_parser(
                     .map(|v| v.to_string())
                     .unwrap_or_default()
             },
-            Some(FieldKind::Vec(_))
-            | Some(FieldKind::BTreeSet(_)) => quote! {
+            Some(FieldKind::Vec(_)) | Some(FieldKind::BTreeSet(_)) => quote! {
                 #base
                     .iter()
                     .map(|v| v.to_string())
