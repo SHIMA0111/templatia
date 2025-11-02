@@ -124,7 +124,7 @@ pub(crate) fn generate_str_parser(
                 #base
                     .iter()
                     .map(|v| v.to_string())
-                    .collect::<BTreeSet<_>>()
+                    .collect::<::std::collections::BTreeSet<_>>()
                     .into_iter()
                     .collect::<Vec<_>>()
                     .join(",")
@@ -153,7 +153,7 @@ pub(crate) fn generate_str_parser(
                 #dup
                     .iter()
                     .map(|v| v.to_string())
-                    .collect::<BTreeSet<_>>()
+                    .collect::<::std::collections::BTreeSet<_>>()
                     .into_iter()
                     .collect::<Vec<_>>()
                     .join(",")
