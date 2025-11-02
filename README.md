@@ -16,6 +16,7 @@ Typically, these are not used individually but combined via the `derive` feature
 (However, since templatia-derive currently only supports `named_struct`, custom implementations are also possible for special types.)
 
 ## Features
+- Alpha: Limited collection support added in 0.0.4-alpha.1 (`Vec<T>`, `HashSet<T>`, `BTreeSet<T>`). See "Collection support (alpha)" for details.
 - Seamless bidirectional conversion between Rust structs and text
 - Default template with all fields in key-value format: `{field_name} = {field_name}`
 - Custom template definition using `templatia` attribute: `#[templatia(template = "...")]`
@@ -183,6 +184,40 @@ fn main() {
   - When `allow_missing_placeholders` is enabled, the Default trait implementation is also required.
 - It is possible to use placeholders for the same field multiple times within the template, but during from_str() the placeholders for the same field must have the same value.
   - For example, if the template is `"{first_name} (Full: {first_name} {family_name})"`, you cannot deserialize `Taro (Full: Jiro Yamada)` into the struct.
+
+## Collection support (alpha)
+The alpha pre-release 0.0.4-alpha.1 introduces limited collection support in templates:
+
+- Supported types: `Vec<T>`, `HashSet<T>`, `BTreeSet<T>`
+- Representation: a single placeholder corresponds to a comma-separated list segment
+  - Example template: `items={items}` matches inputs like `items=a,b,c`
+- Empty segment means an empty collection (`items=`)
+- Duplicate placeholders for the same field must have exactly the same segment text
+- Error reporting uses `TemplateError::ParseToType` with `type_name` like `Vec<u32>`
+
+Example:
+```rust
+use templatia::Template;
+use std::collections::{HashSet, BTreeSet};
+
+#[derive(Template)]
+#[templatia(template = "items={items}; tags={tags}; ord={ord}")]
+struct Data {
+    items: Vec<u32>,
+    tags: HashSet<String>,
+    ord: BTreeSet<i32>,
+}
+
+fn main() {
+    let d = Data::from_str("items=1,2,3; tags=red,blue,red; ord=1,1,2").unwrap();
+    assert_eq!(d.items, vec![1,2,3]);
+    assert_eq!(d.tags.len(), 2); // red, blue
+    assert_eq!(d.ord.len(), 2);  // 1, 2
+}
+```
+
+Notes:
+- This is an alpha feature set prior to 0.0.4 GA. Behavior may change.
 
 ## Runtime Errors
 templatia defines a simple error type for parsing and validation:

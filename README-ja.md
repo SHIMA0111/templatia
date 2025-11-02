@@ -16,6 +16,7 @@ Rustの構造体とテキストのシームレスな相互変換をユーザが�
 (ただし、templatia-deriveは現時点では`named_struct`のみをサポートしているため、特殊な型には独自実装することも可能です。)
 
 ## 特徴
+- アルファ: 0.0.4-alpha.1 で限定的なコレクション対応（`Vec<T>`, `HashSet<T>`, `BTreeSet<T>`）を追加しました。詳細は「コレクション対応（アルファ）」を参照してください。
 - Rustの構造体とテキストのシームレスな相互変換
 - デフォルトテンプレートとして全てのフィールドをkey-value形式: `{field_name} = {field_name}`
 - `templatia`属性を利用したカスタムテンプレートの定義: `#[templatia(template = "...")]`
@@ -182,6 +183,40 @@ fn main() {
   - `allow_missing_placeholders`を有効にしている場合にはDefaultの実装も必要になります。
 - 同じフィールドのプレースホルダーを複数回テンプレート内で利用することが可能ですが、from_str()時には同じフィールドのプレースホルダーは同じ値である必要があります。
   - `"{first_name} (Full: {first_name} {family_name})"`となっていた場合に`Taro (Full: Jiro Yamada)`を構造体にデシリアライズすることはできません。
+
+## コレクション対応（アルファ）
+0.0.4-alpha.1 ではテンプレート内での限定的なコレクション対応を導入しました。
+
+- 対応型: `Vec<T>`, `HashSet<T>`, `BTreeSet<T>`
+- 表現: 1つのプレースホルダーがカンマ区切りのリストに対応します
+  - 例: `items={items}` は `items=a,b,c` のような入力に対応
+- 空セグメントは空コレクションを意味します（`items=`）
+- 同じフィールドの重複プレースホルダーは、セグメント文字列が厳密に同一である必要があります
+- エラーは `TemplateError::ParseToType` を使用し、`type_name` として `Vec<u32>` のような表記を返します
+
+例:
+```rust
+use templatia::Template;
+use std::collections::{HashSet, BTreeSet};
+
+#[derive(Template)]
+#[templatia(template = "items={items}; tags={tags}; ord={ord}")]
+struct Data {
+    items: Vec<u32>,
+    tags: HashSet<String>,
+    ord: BTreeSet<i32>,
+}
+
+fn main() {
+    let d = Data::from_str("items=1,2,3; tags=red,blue,red; ord=1,1,2").unwrap();
+    assert_eq!(d.items, vec![1,2,3]);
+    assert_eq!(d.tags.len(), 2); // red, blue
+    assert_eq!(d.ord.len(), 2);  // 1, 2
+}
+```
+
+注意:
+- これは 0.0.4 リリース前のアルファ機能です。今後挙動が変更される可能性があります。
 
 ## 実行時エラー
 templatia は解析や検証に関するシンプルなエラー型を提供します。
