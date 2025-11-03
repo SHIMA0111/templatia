@@ -693,7 +693,7 @@ mod roundtrip_tests {
     #[test]
     fn roundtrip_consistency_custom_template() {
         #[derive(Template, Debug, PartialEq, Clone)]
-        #[templatia(template = "Config[{name}]={value}")]
+        #[templatia(template = "Config[[{name}]]={value}")]
         struct CustomRoundtrip {
             name: String,
             value: String,

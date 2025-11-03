@@ -101,7 +101,9 @@ pub(crate) fn generate_parser_from_segments(
 
                 is_passed_first_placeholder = true;
                 latest_segment_was_literal = false;
-            }
+            },
+            // TODO: support group box
+            TemplateSegments::GroupBox { segments: _, placeholder: _ } => {}
         }
         is_first_segment = false;
     }

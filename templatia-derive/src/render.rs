@@ -16,6 +16,8 @@ pub(super) fn generate_format_string_args(
         .map(|segment| match segment {
             TemplateSegments::Literal(lit) => lit.replace("{", "{{").replace("}", "}}"),
             TemplateSegments::Placeholder(_) => "{}".to_string(),
+            // TODO: support group box
+            TemplateSegments::GroupBox { segments: _, placeholder: _ } => "group".to_string(),
         })
         // This collect works because the String implements FromIterator.
         .collect::<String>();
@@ -70,6 +72,8 @@ pub(super) fn generate_format_string_args(
                 }
             },
             TemplateSegments::Literal(_) => None,
+            // TODO: support group box
+            TemplateSegments::GroupBox { segments: _, placeholder: _ } => None,
         }).collect::<Vec<_>>();
 
     (format_string, format_args)
