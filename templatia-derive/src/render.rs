@@ -1,7 +1,5 @@
-use crate::error::{
-    generate_not_found_placeholder_compile_error, generate_unsupported_compile_error,
-};
-use crate::fields::{FieldKind, Fields};
+use crate::error::generate_not_found_placeholder_compile_error;
+use crate::fields::{Fields, SupportedFieldKind};
 use crate::parser::TemplateSegments;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -37,33 +35,20 @@ pub(super) fn generate_format_string_args(
                 // Please note: the #field_ident is not `field_ident` but `x` or `y`.
                 match fields.get_field_kind(&field_ident) {
                     Some(ty) => match ty {
-                        FieldKind::Option(_) => {
+                        SupportedFieldKind::Option(_) => {
                             Some(quote! {
                                 &self.#field_ident.as_ref().map(|v| v.to_string()).unwrap_or_else(|| String::new())
                             })
                         },
-                        FieldKind::Vec(_) => {
+                        SupportedFieldKind::Collection { .. } => {
                             Some(quote! {
                                 &self.#field_ident.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",")
                             })
                         },
-                        FieldKind::HashSet(_) => {
-                            Some(quote! {
-                                &self.#field_ident.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",")
-                            })
-                        },
-                        FieldKind::BTreeSet(_) => {
-                            Some(quote! {
-                                &self.#field_ident.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",")
-                            })
-                        },
-                        FieldKind::Primitive(_) => {
+                        SupportedFieldKind::Primitive(_) => {
                             Some(quote! {
                                 &self.#field_ident
                             })
-                        },
-                        _ => {
-                            Some(generate_unsupported_compile_error(&field_ident, ty))
                         },
                     },
                     _ => Some(generate_not_found_placeholder_compile_error("struct", name))

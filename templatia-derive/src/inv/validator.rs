@@ -1,5 +1,5 @@
 use crate::error::generate_consecutive_compile_error;
-use crate::fields::{FieldKind, Fields};
+use crate::fields::{Fields, SupportedFieldKind};
 use crate::parser::TemplateSegments;
 use crate::utils::is_allowed_consecutive_allowed_type;
 
@@ -16,10 +16,10 @@ pub(crate) fn validate_template_safety(
             let first_type = fields.get_type_kind_by_name(first);
             let (allowed_consecutive, first_type_name) = match first_type {
                 Some(field) => match field {
-                    FieldKind::Option(ty) => {
+                    SupportedFieldKind::Option(ty) => {
                         (is_allowed_consecutive_allowed_type(ty), field.to_string())
                     }
-                    FieldKind::Primitive(ty) => {
+                    SupportedFieldKind::Primitive(ty) => {
                         (is_allowed_consecutive_allowed_type(ty), field.to_string())
                     }
                     _ => (false, field.to_string()),

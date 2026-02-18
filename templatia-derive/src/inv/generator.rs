@@ -1,5 +1,5 @@
 use crate::error::generate_not_found_placeholder_compile_error;
-use crate::fields::{FieldKind, Fields};
+use crate::fields::{CollectionKind, Fields, SupportedFieldKind};
 use crate::inv::parser::generate_parser_from_segments;
 use crate::inv::validator::validate_template_safety;
 use crate::parser::TemplateSegments;
@@ -106,60 +106,11 @@ pub(crate) fn generate_str_parser(
 
     let dup_bases = dup_checks.iter().map(|(base, _, name)| {
         let ident = syn::Ident::new(name, proc_macro2::Span::call_site());
-        match fields.get_field_kind(&ident) {
-            Some(FieldKind::Option(_)) => quote! {
-                #base
-                    .as_ref()
-                    .map(|v| v.to_string())
-                    .unwrap_or_default()
-            },
-            Some(FieldKind::Vec(_)) | Some(FieldKind::BTreeSet(_)) => quote! {
-                #base
-                    .iter()
-                    .map(|v| v.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",")
-            },
-            Some(FieldKind::HashSet(_)) => quote! {
-                #base
-                    .iter()
-                    .map(|v| v.to_string())
-                    .collect::<::std::collections::BTreeSet<_>>()
-                    .into_iter()
-                    .collect::<Vec<_>>()
-                    .join(",")
-            },
-            _ => quote! { #base },
-        }
+        generate_dup_value_expr(fields, &ident, base)
     });
     let dup_dups = dup_checks.iter().map(|(_, dup, name)| {
         let ident = syn::Ident::new(name, proc_macro2::Span::call_site());
-
-        match fields.get_field_kind(&ident) {
-            Some(FieldKind::Option(_)) => quote! {
-                #dup
-                    .as_ref()
-                    .map(|v| v.to_string())
-                    .unwrap_or_default()
-            },
-            Some(FieldKind::Vec(_)) | Some(FieldKind::BTreeSet(_)) => quote! {
-                #dup
-                    .iter()
-                    .map(|v| v.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",")
-            },
-            Some(FieldKind::HashSet(_)) => quote! {
-                #dup
-                    .iter()
-                    .map(|v| v.to_string())
-                    .collect::<::std::collections::BTreeSet<_>>()
-                    .into_iter()
-                    .collect::<Vec<_>>()
-                    .join(",")
-            },
-            _ => quote! { #dup },
-        }
+        generate_dup_value_expr(fields, &ident, dup)
     });
 
     let final_parser = quote! {
@@ -183,6 +134,42 @@ pub(crate) fn generate_str_parser(
     };
 
     final_parser
+}
+
+/// Generates the token stream for converting a duplicate placeholder value to a string
+/// representation, based on its field type.
+fn generate_dup_value_expr(
+    fields: &Fields,
+    ident: &syn::Ident,
+    value: &syn::Ident,
+) -> proc_macro2::TokenStream {
+    match fields.get_field_kind(ident) {
+        Some(SupportedFieldKind::Option(_)) => quote! {
+            #value
+                .as_ref()
+                .map(|v| v.to_string())
+                .unwrap_or_default()
+        },
+        Some(SupportedFieldKind::Collection { kind, .. }) => match kind {
+            CollectionKind::HashSet => quote! {
+                #value
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<::std::collections::BTreeSet<_>>()
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .join(",")
+            },
+            CollectionKind::Vec | CollectionKind::BTreeSet => quote! {
+                #value
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            },
+        },
+        _ => quote! { #value },
+    }
 }
 
 fn generate_tuple_pattern(
