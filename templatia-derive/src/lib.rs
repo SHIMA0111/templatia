@@ -33,8 +33,7 @@ mod parser;
 mod render;
 mod utils;
 
-use crate::error::generate_unsupported_compile_error;
-use crate::fields::{FieldKind, Fields};
+use crate::fields::{Fields, SupportedFieldKind};
 use crate::parser::{TemplateSegments, parse_template};
 use crate::render::generate_format_string_args;
 use darling::FromDeriveInput;
@@ -145,8 +144,6 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
         }
     };
 
-    let (format_string, format_args) = generate_format_string_args(&segments, &fields);
-
     // Gathering the all placeholder name without duplication
     let placeholder_names = segments
         .iter()
@@ -158,6 +155,14 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
             }
         })
         .collect::<HashSet<_>>();
+
+    // Reject unsupported field types only for fields actually referenced in the template
+    let unsupported_errors = fields.unsupported_type_errors(&placeholder_names);
+    if !unsupported_errors.is_empty() {
+        return quote! { #(#unsupported_errors)* }.into();
+    }
+
+    let (format_string, format_args) = generate_format_string_args(&segments, &fields);
 
     let str_from_parser = generate_str_parser(
         name,
@@ -179,10 +184,8 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
     for field in fields.used_fields_in_template(&placeholder_names) {
         if let Some(ident) = field.ident.as_ref() {
             match fields.get_field_kind(ident) {
-                Some(FieldKind::Option(ty))
-                | Some(FieldKind::Vec(ty))
-                | Some(FieldKind::HashSet(ty))
-                | Some(FieldKind::BTreeSet(ty)) => {
+                Some(SupportedFieldKind::Option(ty))
+                | Some(SupportedFieldKind::Collection { inner: ty, .. }) => {
                     new_where_clause.predicates.push(syn::parse_quote! {
                         #ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq
                     });
@@ -190,7 +193,7 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
                         <#ty as ::std::str::FromStr>::Err: ::std::fmt::Display
                     });
                 }
-                Some(FieldKind::Primitive(ty)) => {
+                Some(SupportedFieldKind::Primitive(ty)) => {
                     if !allow_missing_placeholders {
                         new_where_clause.predicates.push(syn::parse_quote! {
                             #ty: ::std::fmt::Display + ::std::str::FromStr + ::std::cmp::PartialEq
@@ -204,9 +207,10 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
                         <#ty as ::std::str::FromStr>::Err: ::std::fmt::Display
                     });
                 }
-                Some(kind) => return generate_unsupported_compile_error(ident, kind).into(),
                 None => {
-                    return generate_unsupported_compile_error(ident, &FieldKind::Unknown).into();
+                    // This should not happen since unsupported types are already rejected,
+                    // and placeholders are validated against field names.
+                    unreachable!("Field '{}' not found in supported fields", ident);
                 }
             }
         }

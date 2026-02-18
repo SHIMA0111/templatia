@@ -1,9 +1,56 @@
+use crate::error::generate_unsupported_compile_error;
 use crate::utils::get_type_name;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use syn::GenericArgument;
 
-pub(crate) enum FieldKind<'a> {
+/// Distinguishes the specific collection type for code generation.
+/// This is a compile-time only type and must never enter `quote!` blocks.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum CollectionKind {
+    Vec,
+    HashSet,
+    BTreeSet,
+}
+
+impl Display for CollectionKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CollectionKind::Vec => write!(f, "Vec"),
+            CollectionKind::HashSet => write!(f, "HashSet"),
+            CollectionKind::BTreeSet => write!(f, "BTreeSet"),
+        }
+    }
+}
+
+/// Represents only the field types that templatia supports.
+/// This is a compile-time only type used to decide what `TokenStream` to generate.
+/// It must never enter `quote!` blocks directly.
+pub(crate) enum SupportedFieldKind<'a> {
+    Primitive(&'a syn::Type),
+    Option(&'a syn::Type),
+    Collection {
+        inner: &'a syn::Type,
+        kind: CollectionKind,
+    },
+}
+
+impl Display for SupportedFieldKind<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SupportedFieldKind::Primitive(ty) => write!(f, "{}", get_type_name(ty)),
+            SupportedFieldKind::Option(ty) => write!(f, "Option<{}>", get_type_name(ty)),
+            SupportedFieldKind::Collection { inner, kind } => {
+                write!(f, "{}<{}>", kind, get_type_name(inner))
+            }
+        }
+    }
+}
+
+/// Internal enum used only within `analyze_fields` to classify all possible field types,
+/// including unsupported ones. This is converted to `SupportedFieldKind` before leaving
+/// the analysis phase.
+enum FieldKind<'a> {
     Primitive(&'a syn::Type),
     Option(&'a syn::Type),
     Result(&'a syn::Type, &'a syn::Type),
@@ -48,22 +95,61 @@ impl Display for FieldKind<'_> {
     }
 }
 
+/// Converts a `FieldKind` to a `SupportedFieldKind`, returning an error tuple
+/// `(field_display, type_display)` for unsupported types.
+fn to_supported(kind: FieldKind<'_>) -> Result<SupportedFieldKind<'_>, String> {
+    match kind {
+        FieldKind::Primitive(ty) => Ok(SupportedFieldKind::Primitive(ty)),
+        FieldKind::Option(ty) => Ok(SupportedFieldKind::Option(ty)),
+        FieldKind::Vec(ty) => Ok(SupportedFieldKind::Collection {
+            inner: ty,
+            kind: CollectionKind::Vec,
+        }),
+        FieldKind::HashSet(ty) => Ok(SupportedFieldKind::Collection {
+            inner: ty,
+            kind: CollectionKind::HashSet,
+        }),
+        FieldKind::BTreeSet(ty) => Ok(SupportedFieldKind::Collection {
+            inner: ty,
+            kind: CollectionKind::BTreeSet,
+        }),
+        unsupported => Err(unsupported.to_string()),
+    }
+}
+
 pub(crate) struct Fields<'a> {
     fields: &'a [syn::Field],
-    idents_type: HashMap<&'a syn::Ident, FieldKind<'a>>,
+    idents_type: HashMap<&'a syn::Ident, SupportedFieldKind<'a>>,
+    /// Field names with unsupported types, stored for deferred checking.
+    unsupported_fields: HashMap<&'a syn::Ident, String>,
 }
 
 impl<'a> Fields<'a> {
     pub(crate) fn new(fields: &'a [syn::Field]) -> Self {
-        let idents_type = analyze_fields(fields);
+        let (idents_type, unsupported_fields) = analyze_fields(fields);
 
         Self {
             fields,
             idents_type,
+            unsupported_fields,
         }
     }
 
-    pub(crate) fn get_type_kind_by_name(&'_ self, name: &str) -> Option<&FieldKind<'_>> {
+    /// Returns compile errors only for unsupported field types that are actually
+    /// referenced by template placeholders. Fields with unsupported types that
+    /// are not used in the template are silently ignored.
+    pub(crate) fn unsupported_type_errors(
+        &self,
+        placeholder_names: &HashSet<String>,
+    ) -> Vec<proc_macro2::TokenStream> {
+        self.unsupported_fields
+            .iter()
+            .filter(|(ident, _)| placeholder_names.contains(&ident.to_string()))
+            .map(|(ident, type_display)| generate_unsupported_compile_error(ident, type_display))
+            .collect()
+    }
+
+    pub(crate) fn get_type_kind_by_name(&'_ self, name: &str) -> Option<&SupportedFieldKind<'_>> {
         let name = proc_macro2::Ident::new(name, proc_macro2::Span::call_site());
         self.idents_type.get(&name)
     }
@@ -84,7 +170,7 @@ impl<'a> Fields<'a> {
             .collect::<Vec<_>>()
     }
 
-    pub(crate) fn get_field_kind(&'_ self, ident: &syn::Ident) -> Option<&FieldKind<'_>> {
+    pub(crate) fn get_field_kind(&'_ self, ident: &syn::Ident) -> Option<&SupportedFieldKind<'_>> {
         self.idents_type.get(ident)
     }
 
@@ -105,10 +191,10 @@ impl<'a> Fields<'a> {
     pub(crate) fn option_fields(&self) -> HashMap<&syn::Ident, &syn::Type> {
         self.idents_type
             .iter()
-            .filter(|(_, kind)| matches!(kind, FieldKind::Option(_)))
+            .filter(|(_, kind)| matches!(kind, SupportedFieldKind::Option(_)))
             .map(|(&ident, kind)| {
                 let ty = match kind {
-                    FieldKind::Option(ty) => *ty,
+                    SupportedFieldKind::Option(ty) => *ty,
                     _ => unreachable!(),
                 };
 
@@ -150,8 +236,14 @@ impl<'a> Fields<'a> {
     }
 }
 
-fn analyze_fields(fields: &'_ [syn::Field]) -> HashMap<&'_ syn::Ident, FieldKind<'_>> {
+fn analyze_fields(
+    fields: &'_ [syn::Field],
+) -> (
+    HashMap<&'_ syn::Ident, SupportedFieldKind<'_>>,
+    HashMap<&'_ syn::Ident, String>,
+) {
     let mut result = HashMap::new();
+    let mut unsupported = HashMap::new();
 
     for field in fields {
         // If the field is not named, skip it. Currently, only named fields are supported.
@@ -159,124 +251,102 @@ fn analyze_fields(fields: &'_ [syn::Field]) -> HashMap<&'_ syn::Ident, FieldKind
             continue;
         }
 
-        match &field.ty {
-            syn::Type::Path(type_path) => {
-                if let Some(last_segment) = type_path.path.segments.last() {
-                    match &last_segment.arguments {
-                        syn::PathArguments::AngleBracketed(args) => {
-                            let ident = &last_segment.ident.to_string();
-                            match ident.as_str() {
-                                "Option" => {
-                                    // Option<T> has only one argument which is T.
-                                    if args.args.len() == 1
-                                        && let Some(GenericArgument::Type(ty)) = args.args.first()
-                                    {
-                                        result.insert(
-                                            field.ident.as_ref().unwrap(),
-                                            FieldKind::Option(ty),
-                                        );
-                                        continue;
-                                    }
-                                }
-                                "Vec" => {
-                                    if args.args.len() == 1
-                                        && let Some(GenericArgument::Type(ty)) = args.args.first()
-                                    {
-                                        result.insert(
-                                            field.ident.as_ref().unwrap(),
-                                            FieldKind::Vec(ty),
-                                        );
-                                        continue;
-                                    }
-                                }
-                                "HashSet" => {
-                                    if args.args.len() == 1
-                                        && let Some(GenericArgument::Type(ty)) = args.args.first()
-                                    {
-                                        result.insert(
-                                            field.ident.as_ref().unwrap(),
-                                            FieldKind::HashSet(ty),
-                                        );
-                                        continue;
-                                    }
-                                }
-                                "BTreeSet" => {
-                                    if args.args.len() == 1
-                                        && let Some(GenericArgument::Type(ty)) = args.args.first()
-                                    {
-                                        result.insert(
-                                            field.ident.as_ref().unwrap(),
-                                            FieldKind::BTreeSet(ty),
-                                        );
-                                        continue;
-                                    }
-                                }
-                                "HashMap" => {
-                                    if args.args.len() == 2
-                                        && let (
-                                            Some(GenericArgument::Type(key_ty)),
-                                            Some(GenericArgument::Type(value_ty)),
-                                        ) = (args.args.first(), args.args.last())
-                                    {
-                                        result.insert(
-                                            field.ident.as_ref().unwrap(),
-                                            FieldKind::HashMap(key_ty, value_ty),
-                                        );
-                                        continue;
-                                    }
-                                }
-                                "BTreeMap" => {
-                                    if args.args.len() == 2
-                                        && let (
-                                            Some(GenericArgument::Type(key_ty)),
-                                            Some(GenericArgument::Type(value_ty)),
-                                        ) = (args.args.first(), args.args.last())
-                                    {
-                                        result.insert(
-                                            field.ident.as_ref().unwrap(),
-                                            FieldKind::BTreeMap(key_ty, value_ty),
-                                        );
-                                        continue;
-                                    }
-                                }
-                                "Result" => {
-                                    if args.args.len() == 2
-                                        && let (
-                                            Some(GenericArgument::Type(ok_ty)),
-                                            Some(GenericArgument::Type(err_ty)),
-                                        ) = (args.args.first(), args.args.last())
-                                    {
-                                        result.insert(
-                                            field.ident.as_ref().unwrap(),
-                                            FieldKind::Result(ok_ty, err_ty),
-                                        );
-                                        continue;
-                                    }
-                                }
-                                _ => {}
-                            }
-                            result.insert(field.ident.as_ref().unwrap(), FieldKind::Unknown);
-                        }
-                        syn::PathArguments::None => {
-                            result.insert(
-                                field.ident.as_ref().unwrap(),
-                                FieldKind::Primitive(&field.ty),
-                            );
-                        }
-                        syn::PathArguments::Parenthesized(_) => {
-                            result.insert(field.ident.as_ref().unwrap(), FieldKind::Unknown);
-                        }
-                    }
-                }
+        let field_kind = classify_field_type(field);
+        let ident = field.ident.as_ref().unwrap();
+
+        match to_supported(field_kind) {
+            Ok(supported) => {
+                result.insert(ident, supported);
             }
-            syn::Type::Tuple(_) => {
-                result.insert(field.ident.as_ref().unwrap(), FieldKind::Tuple);
-            }
-            _ => {
-                result.insert(field.ident.as_ref().unwrap(), FieldKind::Unknown);
+            Err(type_display) => {
+                unsupported.insert(ident, type_display);
             }
         }
     }
 
-    result
+    (result, unsupported)
+}
+
+/// Classifies a single field's type into a `FieldKind`. This handles all type variants
+/// including unsupported ones.
+fn classify_field_type<'a>(field: &'a syn::Field) -> FieldKind<'a> {
+    match &field.ty {
+        syn::Type::Path(type_path) => {
+            if let Some(last_segment) = type_path.path.segments.last() {
+                match &last_segment.arguments {
+                    syn::PathArguments::AngleBracketed(args) => {
+                        let ident = &last_segment.ident.to_string();
+                        match ident.as_str() {
+                            "Option" => {
+                                if args.args.len() == 1
+                                    && let Some(GenericArgument::Type(ty)) = args.args.first()
+                                {
+                                    return FieldKind::Option(ty);
+                                }
+                            }
+                            "Vec" => {
+                                if args.args.len() == 1
+                                    && let Some(GenericArgument::Type(ty)) = args.args.first()
+                                {
+                                    return FieldKind::Vec(ty);
+                                }
+                            }
+                            "HashSet" => {
+                                if args.args.len() == 1
+                                    && let Some(GenericArgument::Type(ty)) = args.args.first()
+                                {
+                                    return FieldKind::HashSet(ty);
+                                }
+                            }
+                            "BTreeSet" => {
+                                if args.args.len() == 1
+                                    && let Some(GenericArgument::Type(ty)) = args.args.first()
+                                {
+                                    return FieldKind::BTreeSet(ty);
+                                }
+                            }
+                            "HashMap" => {
+                                if args.args.len() == 2
+                                    && let (
+                                        Some(GenericArgument::Type(key_ty)),
+                                        Some(GenericArgument::Type(value_ty)),
+                                    ) = (args.args.first(), args.args.last())
+                                {
+                                    return FieldKind::HashMap(key_ty, value_ty);
+                                }
+                            }
+                            "BTreeMap" => {
+                                if args.args.len() == 2
+                                    && let (
+                                        Some(GenericArgument::Type(key_ty)),
+                                        Some(GenericArgument::Type(value_ty)),
+                                    ) = (args.args.first(), args.args.last())
+                                {
+                                    return FieldKind::BTreeMap(key_ty, value_ty);
+                                }
+                            }
+                            "Result" => {
+                                if args.args.len() == 2
+                                    && let (
+                                        Some(GenericArgument::Type(ok_ty)),
+                                        Some(GenericArgument::Type(err_ty)),
+                                    ) = (args.args.first(), args.args.last())
+                                {
+                                    return FieldKind::Result(ok_ty, err_ty);
+                                }
+                            }
+                            _ => {}
+                        }
+                        FieldKind::Unknown
+                    }
+                    syn::PathArguments::None => FieldKind::Primitive(&field.ty),
+                    syn::PathArguments::Parenthesized(_) => FieldKind::Unknown,
+                }
+            } else {
+                FieldKind::Unknown
+            }
+        }
+        syn::Type::Tuple(_) => FieldKind::Tuple,
+        _ => FieldKind::Unknown,
+    }
 }

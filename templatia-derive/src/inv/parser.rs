@@ -1,5 +1,4 @@
-use crate::error::generate_unsupported_compile_error;
-use crate::fields::{FieldKind, Fields};
+use crate::fields::{CollectionKind, Fields, SupportedFieldKind};
 use crate::parser::TemplateSegments;
 use crate::utils::get_type_name;
 use quote::quote;
@@ -111,7 +110,7 @@ pub(crate) fn generate_parser_from_segments(
 
 fn generate_field_parser(
     field_name: &syn::Ident,
-    field_type: &FieldKind,
+    field_type: &SupportedFieldKind,
     next_segment: Option<&TemplateSegments>,
     empty_str_as_none: bool,
     colon_escaper: &proc_macro2::TokenStream,
@@ -123,7 +122,7 @@ fn generate_field_parser(
 
     let field_type_str = field_type.to_string();
     match field_type {
-        FieldKind::Option(ty) => {
+        SupportedFieldKind::Option(ty) => {
             let is_string_type =
                 matches!(get_type_name(ty).to_lowercase().as_str(), "string" | "str");
             let inner_parser = generate_parser(ty, next_literal);
@@ -151,59 +150,41 @@ fn generate_field_parser(
                     })
             }
         }
-        FieldKind::Vec(ty) => {
+        SupportedFieldKind::Collection { inner: ty, kind } => {
             let inner_parser = generate_str_parser(next_literal);
+
+            // Generate the collection-specific construction code
+            let (collection_init, collection_insert, collection_ok) = match kind {
+                CollectionKind::Vec => (
+                    quote! { let mut collection = Vec::new(); },
+                    quote! { collection.push(v); },
+                    quote! { Ok(collection) },
+                ),
+                CollectionKind::HashSet => (
+                    quote! { let mut collection = std::collections::HashSet::new(); },
+                    quote! { collection.insert(v); },
+                    quote! { Ok(collection) },
+                ),
+                CollectionKind::BTreeSet => (
+                    quote! { let mut collection = std::collections::BTreeSet::new(); },
+                    quote! { collection.insert(v); },
+                    quote! { Ok(collection) },
+                ),
+            };
 
             quote! {
                 #inner_parser
                     .try_map(|s: &str, span| {
-                        let mut vec = Vec::new();
+                        #collection_init
                         if s.is_empty() {
-                            Ok(vec)
+                            #collection_ok
                         } else {
                             let values = s.split(',');
 
                             for value in values {
                                 match value.parse::<#ty>() {
                                     Ok(v) => {
-                                        vec.push(v);
-                                    },
-                                    Err(_) => {
-                                        // I'm not sure if this way is the best for the collection parser.
-                                        // However, this way works for now.
-                                        return Err(chumsky::error::Rich::<char>::custom(
-                                            span,
-                                            format!(
-                                                "__templatia_parse_type__:{}::{}::{}",
-                                                stringify!(#field_name).#colon_escaper,
-                                                s.#colon_escaper,
-                                                #field_type_str.#colon_escaper,
-                                            )
-                                        ))
-                                    }
-                                }
-                            }
-                            Ok(vec)
-                        }
-                    })
-            }
-        }
-        FieldKind::HashSet(ty) => {
-            let inner_parser = generate_str_parser(next_literal);
-
-            quote! {
-                #inner_parser
-                    .try_map(|s: &str, span| {
-                        let mut set = std::collections::HashSet::new();
-                        if s.is_empty() {
-                            Ok(set)
-                        } else {
-                            let values = s.split(',');
-
-                            for value in values {
-                                match value.parse::<#ty>() {
-                                    Ok(v) => {
-                                        set.insert(v);
+                                        #collection_insert
                                     },
                                     Err(_) => {
                                         return Err(chumsky::error::Rich::<char>::custom(
@@ -218,47 +199,12 @@ fn generate_field_parser(
                                     }
                                 }
                             }
-                            Ok(set)
+                            #collection_ok
                         }
                     })
             }
         }
-        FieldKind::BTreeSet(ty) => {
-            let inner_parser = generate_str_parser(next_literal);
-
-            quote! {
-                #inner_parser
-                    .try_map(|s: &str, span| {
-                        let mut b_set = std::collections::BTreeSet::new();
-                        if s.is_empty() {
-                            Ok(b_set)
-                        } else {
-                            let values = s.split(',');
-
-                            for value in values {
-                                match value.parse::<#ty>() {
-                                    Ok(v) => {
-                                        b_set.insert(v);
-                                    },
-                                    Err(_) => {
-                                        return Err(chumsky::error::Rich::<char>::custom(
-                                            span,
-                                            format!(
-                                                "__templatia_parse_type__:{}::{}::{}",
-                                                stringify!(#field_name).#colon_escaper,
-                                                s.#colon_escaper,
-                                                #field_type_str.#colon_escaper,
-                                            )
-                                        ))
-                                    }
-                                }
-                            }
-                            Ok(b_set)
-                        }
-                    })
-            }
-        }
-        FieldKind::Primitive(ty) => {
+        SupportedFieldKind::Primitive(ty) => {
             let parser = generate_parser(ty, next_literal);
 
             quote! {
@@ -279,7 +225,6 @@ fn generate_field_parser(
                     })
             }
         }
-        _ => generate_unsupported_compile_error(field_name, field_type),
     }
 }
 

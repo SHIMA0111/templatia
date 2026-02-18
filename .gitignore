@@ -1,4 +1,6 @@
 target
 .idea
-.vscode
+.vscode/*
 !.vscode/settings.json
+.ai
+CLAUDE.md

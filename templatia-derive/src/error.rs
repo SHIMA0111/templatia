@@ -1,4 +1,3 @@
-use crate::fields::FieldKind;
 use crate::utils::CONSECUTIVE_PLACEHOLDER_ALLOWED_TYPE;
 
 pub(crate) fn generate_compile_error(msg: &str) -> proc_macro2::TokenStream {
@@ -8,13 +7,11 @@ pub(crate) fn generate_compile_error(msg: &str) -> proc_macro2::TokenStream {
 
 pub(crate) fn generate_unsupported_compile_error(
     field: &syn::Ident,
-    ty: &FieldKind,
+    type_description: &str,
 ) -> proc_macro2::TokenStream {
     let msg = format!(
         "unsupported type field: {0} has a {1} type. currently, {1} is not supported",
-        // Currently, support only named struct so this unwrap is safe.
-        field,
-        ty.to_string(),
+        field, type_description,
     );
 
     generate_compile_error(&msg)
