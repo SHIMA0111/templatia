@@ -120,25 +120,33 @@ fn to_supported(kind: FieldKind<'_>) -> Result<SupportedFieldKind<'_>, String> {
 pub(crate) struct Fields<'a> {
     fields: &'a [syn::Field],
     idents_type: HashMap<&'a syn::Ident, SupportedFieldKind<'a>>,
-    /// Compile errors for unsupported field types, collected during construction.
-    unsupported_errors: Vec<proc_macro2::TokenStream>,
+    /// Field names with unsupported types, stored for deferred checking.
+    unsupported_fields: HashMap<&'a syn::Ident, String>,
 }
 
 impl<'a> Fields<'a> {
     pub(crate) fn new(fields: &'a [syn::Field]) -> Self {
-        let (idents_type, unsupported_errors) = analyze_fields(fields);
+        let (idents_type, unsupported_fields) = analyze_fields(fields);
 
         Self {
             fields,
             idents_type,
-            unsupported_errors,
+            unsupported_fields,
         }
     }
 
-    /// Returns compile errors for any unsupported field types found during construction.
-    /// If non-empty, these should be emitted and macro expansion should halt.
-    pub(crate) fn unsupported_type_errors(&self) -> &[proc_macro2::TokenStream] {
-        &self.unsupported_errors
+    /// Returns compile errors only for unsupported field types that are actually
+    /// referenced by template placeholders. Fields with unsupported types that
+    /// are not used in the template are silently ignored.
+    pub(crate) fn unsupported_type_errors(
+        &self,
+        placeholder_names: &HashSet<String>,
+    ) -> Vec<proc_macro2::TokenStream> {
+        self.unsupported_fields
+            .iter()
+            .filter(|(ident, _)| placeholder_names.contains(&ident.to_string()))
+            .map(|(ident, type_display)| generate_unsupported_compile_error(ident, type_display))
+            .collect()
     }
 
     pub(crate) fn get_type_kind_by_name(&'_ self, name: &str) -> Option<&SupportedFieldKind<'_>> {
@@ -232,10 +240,10 @@ fn analyze_fields(
     fields: &'_ [syn::Field],
 ) -> (
     HashMap<&'_ syn::Ident, SupportedFieldKind<'_>>,
-    Vec<proc_macro2::TokenStream>,
+    HashMap<&'_ syn::Ident, String>,
 ) {
     let mut result = HashMap::new();
-    let mut errors = Vec::new();
+    let mut unsupported = HashMap::new();
 
     for field in fields {
         // If the field is not named, skip it. Currently, only named fields are supported.
@@ -251,12 +259,12 @@ fn analyze_fields(
                 result.insert(ident, supported);
             }
             Err(type_display) => {
-                errors.push(generate_unsupported_compile_error(ident, &type_display));
+                unsupported.insert(ident, type_display);
             }
         }
     }
 
-    (result, errors)
+    (result, unsupported)
 }
 
 /// Classifies a single field's type into a `FieldKind`. This handles all type variants

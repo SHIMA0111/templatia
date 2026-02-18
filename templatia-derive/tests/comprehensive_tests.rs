@@ -1342,4 +1342,28 @@ mod missing_field_tests {
         assert_eq!(parsed.c, "C");
         assert_eq!(parsed.d, ""); // Missing
     }
+
+    #[test]
+    fn missing_field_with_unsupported_type_compiles() {
+        use std::collections::HashMap;
+
+        #[derive(Template, Debug)]
+        #[templatia(template = "name={name}", allow_missing_placeholders)]
+        struct HasUnusedUnsupported {
+            name: String,
+            metadata: HashMap<String, i32>,
+        }
+
+        let instance = HasUnusedUnsupported {
+            name: "test".into(),
+            metadata: HashMap::from([("key".into(), 42)]),
+        };
+
+        let template = instance.render_string();
+        assert_eq!(template, "name=test");
+
+        let parsed = HasUnusedUnsupported::from_str(&template).unwrap();
+        assert_eq!(parsed.name, "test");
+        assert!(parsed.metadata.is_empty()); // Default for HashMap
+    }
 }

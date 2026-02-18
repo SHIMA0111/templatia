@@ -134,12 +134,6 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
 
     let fields = Fields::new(all_fields);
 
-    // Reject unsupported field types early, before any downstream processing
-    if !fields.unsupported_type_errors().is_empty() {
-        let errors = fields.unsupported_type_errors();
-        return quote! { #(#errors)* }.into();
-    }
-
     let segments = match parse_template(&template) {
         Ok(segments) => segments,
         Err(e) => {
@@ -149,8 +143,6 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
             return error.to_compile_error().into();
         }
     };
-
-    let (format_string, format_args) = generate_format_string_args(&segments, &fields);
 
     // Gathering the all placeholder name without duplication
     let placeholder_names = segments
@@ -163,6 +155,14 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
             }
         })
         .collect::<HashSet<_>>();
+
+    // Reject unsupported field types only for fields actually referenced in the template
+    let unsupported_errors = fields.unsupported_type_errors(&placeholder_names);
+    if !unsupported_errors.is_empty() {
+        return quote! { #(#unsupported_errors)* }.into();
+    }
+
+    let (format_string, format_args) = generate_format_string_args(&segments, &fields);
 
     let str_from_parser = generate_str_parser(
         name,
